@@ -1,0 +1,13 @@
+# FastAPI & Server
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+python-multipart>=0.0.9
+
+# AI Engine - Computer Vision
+insightface>=0.7.3
+onnxruntime>=1.18.0
+mediapipe>=0.10.14
+ultralytics>=8.2.0
+opencv-python>=4.10.0
+numpy>=1.26.0
+scikit-learn>=1.5.0

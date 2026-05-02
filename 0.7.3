@@ -1,0 +1,77 @@
+Collecting insightface
+  Using cached insightface-0.7.3.tar.gz (439 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Requirement already satisfied: numpy in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (2.4.4)
+Requirement already satisfied: onnx in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (1.21.0)
+Requirement already satisfied: tqdm in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (4.67.3)
+Requirement already satisfied: requests in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (2.33.1)
+Requirement already satisfied: matplotlib in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (3.10.9)
+Requirement already satisfied: Pillow in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (12.2.0)
+Requirement already satisfied: scipy in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (1.17.1)
+Requirement already satisfied: scikit-learn in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (1.8.0)
+Requirement already satisfied: scikit-image in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (0.26.0)
+Requirement already satisfied: easydict in c:\laragon\bin\python\python-3.13\lib\site-packages (from insightface) (1.13)
+Collecting cython (from insightface)
+  Using cached cython-3.2.4-cp313-cp313-win_amd64.whl.metadata (7.7 kB)
+Collecting albumentations (from insightface)
+  Using cached albumentations-2.0.8-py3-none-any.whl.metadata (43 kB)
+Collecting prettytable (from insightface)
+  Using cached prettytable-3.17.0-py3-none-any.whl.metadata (34 kB)
+Requirement already satisfied: PyYAML in c:\laragon\bin\python\python-3.13\lib\site-packages (from albumentations->insightface) (6.0.3)
+Requirement already satisfied: pydantic>=2.9.2 in c:\laragon\bin\python\python-3.13\lib\site-packages (from albumentations->insightface) (2.13.3)
+Collecting albucore==0.0.24 (from albumentations->insightface)
+  Using cached albucore-0.0.24-py3-none-any.whl.metadata (5.3 kB)
+Collecting opencv-python-headless>=4.9.0.80 (from albumentations->insightface)
+  Using cached opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl.metadata (20 kB)
+Collecting stringzilla>=3.10.4 (from albucore==0.0.24->albumentations->insightface)
+  Using cached stringzilla-4.6.0-cp313-cp313-win_amd64.whl.metadata (124 kB)
+Collecting simsimd>=5.9.2 (from albucore==0.0.24->albumentations->insightface)
+  Using cached simsimd-6.5.16-cp313-cp313-win_amd64.whl.metadata (71 kB)
+Requirement already satisfied: contourpy>=1.0.1 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (1.3.3)
+Requirement already satisfied: cycler>=0.10 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (0.12.1)
+Requirement already satisfied: fonttools>=4.22.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (4.62.1)
+Requirement already satisfied: kiwisolver>=1.3.1 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (1.5.0)
+Requirement already satisfied: packaging>=20.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (26.2)
+Requirement already satisfied: pyparsing>=3 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (3.3.2)
+Requirement already satisfied: python-dateutil>=2.7 in c:\laragon\bin\python\python-3.13\lib\site-packages (from matplotlib->insightface) (2.9.0.post0)
+Requirement already satisfied: protobuf>=4.25.1 in c:\laragon\bin\python\python-3.13\lib\site-packages (from onnx->insightface) (7.34.1)
+Requirement already satisfied: typing_extensions>=4.7.1 in c:\laragon\bin\python\python-3.13\lib\site-packages (from onnx->insightface) (4.15.0)
+Requirement already satisfied: ml_dtypes>=0.5.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from onnx->insightface) (0.5.4)
+Collecting wcwidth (from prettytable->insightface)
+  Using cached wcwidth-0.6.0-py3-none-any.whl.metadata (30 kB)
+Requirement already satisfied: charset_normalizer<4,>=2 in c:\laragon\bin\python\python-3.13\lib\site-packages (from requests->insightface) (3.4.7)
+Requirement already satisfied: idna<4,>=2.5 in c:\laragon\bin\python\python-3.13\lib\site-packages (from requests->insightface) (3.13)
+Requirement already satisfied: urllib3<3,>=1.26 in c:\laragon\bin\python\python-3.13\lib\site-packages (from requests->insightface) (2.6.3)
+Requirement already satisfied: certifi>=2023.5.7 in c:\laragon\bin\python\python-3.13\lib\site-packages (from requests->insightface) (2026.4.22)
+Requirement already satisfied: networkx>=3.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from scikit-image->insightface) (3.6.1)
+Requirement already satisfied: imageio!=2.35.0,>=2.33 in c:\laragon\bin\python\python-3.13\lib\site-packages (from scikit-image->insightface) (2.37.3)
+Requirement already satisfied: tifffile>=2022.8.12 in c:\laragon\bin\python\python-3.13\lib\site-packages (from scikit-image->insightface) (2026.4.11)
+Requirement already satisfied: lazy-loader>=0.4 in c:\laragon\bin\python\python-3.13\lib\site-packages (from scikit-image->insightface) (0.5)
+Requirement already satisfied: joblib>=1.3.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from scikit-learn->insightface) (1.5.3)
+Requirement already satisfied: threadpoolctl>=3.2.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from scikit-learn->insightface) (3.6.0)
+Requirement already satisfied: colorama in c:\laragon\bin\python\python-3.13\lib\site-packages (from tqdm->insightface) (0.4.6)
+Requirement already satisfied: annotated-types>=0.6.0 in c:\laragon\bin\python\python-3.13\lib\site-packages (from pydantic>=2.9.2->albumentations->insightface) (0.7.0)
+Requirement already satisfied: pydantic-core==2.46.3 in c:\laragon\bin\python\python-3.13\lib\site-packages (from pydantic>=2.9.2->albumentations->insightface) (2.46.3)
+Requirement already satisfied: typing-inspection>=0.4.2 in c:\laragon\bin\python\python-3.13\lib\site-packages (from pydantic>=2.9.2->albumentations->insightface) (0.4.2)
+Requirement already satisfied: six>=1.5 in c:\laragon\bin\python\python-3.13\lib\site-packages (from python-dateutil>=2.7->matplotlib->insightface) (1.17.0)
+Using cached albumentations-2.0.8-py3-none-any.whl (369 kB)
+Using cached albucore-0.0.24-py3-none-any.whl (15 kB)
+Using cached cython-3.2.4-cp313-cp313-win_amd64.whl (2.8 MB)
+Using cached prettytable-3.17.0-py3-none-any.whl (34 kB)
+Using cached opencv_python_headless-4.13.0.92-cp37-abi3-win_amd64.whl (40.1 MB)
+Using cached wcwidth-0.6.0-py3-none-any.whl (94 kB)
+Using cached simsimd-6.5.16-cp313-cp313-win_amd64.whl (87 kB)
+Using cached stringzilla-4.6.0-cp313-cp313-win_amd64.whl (162 kB)
+Building wheels for collected packages: insightface
+  Building wheel for insightface (pyproject.toml): started
+  Building wheel for insightface (pyproject.toml): finished with status 'done'
+  Created wheel for insightface: filename=insightface-0.7.3-cp313-cp313-win_amd64.whl size=884838 sha256=d5b7b6321b0c1eb350b4b0731d10880f6053c514785a50cc759bf1c4797b1994
+  Stored in directory: c:\users\legion\appdata\local\pip\cache\wheels\e8\a1\6a\a94e7156c3c0815101a10be114c44fc0b2b3e40fc10d63b939
+Successfully built insightface
+Installing collected packages: simsimd, wcwidth, stringzilla, opencv-python-headless, cython, prettytable, albucore, albumentations, insightface
+Successfully installed albucore-0.0.24 albumentations-2.0.8 cython-3.2.4 insightface-0.7.3 opencv-python-headless-4.13.0.92 prettytable-3.17.0 simsimd-6.5.16 stringzilla-4.6.0 wcwidth-0.6.0
