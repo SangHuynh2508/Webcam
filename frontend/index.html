@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ thống Giám sát thi</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Khu vực Enrollment -->
+        <div class="panel">
+            <h2>Đăng ký Thí sinh</h2>
+            <form id="enrollForm">
+                <input type="text" id="reg-mssv" placeholder="Nhập MSSV" required>
+                <input type="text" id="reg-name" placeholder="Họ và Tên" required>
+                <input type="file" id="reg-image" accept="image/*" required>
+                <button type="submit" class="btn">Đăng ký</button>
+            </form>
+            <div id="enroll-status"></div>
+        </div>
+
+        <hr>
+
+        <!-- Khu vực Giám sát -->
+        <div class="panel">
+            <h2>Giám sát Real-time</h2>
+            <div class="controls">
+                <input type="text" id="mon-mssv" placeholder="Nhập MSSV giám sát" required>
+                <button id="btn-start" class="btn btn-primary">Bắt đầu giám sát</button>
+                <button id="btn-stop" class="btn btn-danger" disabled>Dừng</button>
+            </div>
+
+            <!-- Layout 2 cột -->
+            <div class="monitoring-layout">
+                <div class="webcam-box">
+                    <video id="webcam" autoplay playsinline muted></video>
+                    <!-- Canvas ẩn để trích xuất frame -->
+                    <canvas id="hidden-canvas" style="display: none;"></canvas>
+                </div>
+                
+                <div class="console-box" id="console-wrapper">
+                    <div id="console-log">
+                        <div class="log-entry"><span class="log-time">[System]</span> <span class="log-ok">Sẵn sàng...</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
