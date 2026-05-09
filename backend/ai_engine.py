@@ -137,12 +137,19 @@ class AIEngine:
     # Phase 3: ArcFace Identity Verification (FULLY IMPLEMENTED)
     # ------------------------------------------------------------------
 
-    def verify_identity(self, frame: np.ndarray) -> dict:
+    def verify_identity(self, frame: np.ndarray, mssv: str) -> dict:
         """
         Phát hiện khuôn mặt to nhất trong frame và so khớp Cosine Similarity
-        với toàn bộ embedding lưu trong RAM (self.anchor_db).
+        với embedding của mssv được cung cấp trong RAM (self.anchor_db).
         Returns: {"status": str, "name": str, "similarity": float}
         """
+        if mssv not in self.anchor_db:
+            return {
+                "status": "Error",
+                "name": "Chưa đăng ký",
+                "similarity": 0.0,
+            }
+
         # 1. Phát hiện khuôn mặt trong frame đầu vào
         faces = self.face_analyzer.get(frame)
 
@@ -155,41 +162,30 @@ class AIEngine:
             }
 
         # 2. Tìm khuôn mặt to nhất (dựa trên diện tích bounding box)
-        # Thuộc tính bbox có mảng 4 phần tử [x1, y1, x2, y2]
-        # Diện tích = (x2 - x1) * (y2 - y1)
         largest_face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
         
         # Reshape thành mảng 2D (1, 512) để tính cosine_similarity
         current_embedding = largest_face.embedding.reshape(1, -1)
 
-        best_similarity = 0.0
-        best_name = "Người lạ"
-
-        # 3. Quét toàn bộ database trong RAM để tìm Similarity cao nhất
-        for mssv, data in self.anchor_db.items():
-            anchor_embedding = data["embedding"].reshape(1, -1)
-            # Tính cosine similarity (kết quả trả về là ma trận 1x1, lấy phần tử [0][0])
-            sim = cosine_similarity(current_embedding, anchor_embedding)[0][0]
-            sim = float(sim)
-
-            if sim > best_similarity:
-                best_similarity = sim
-                best_name = data["name"]
+        # 3. Tính cosine similarity với mssv cụ thể
+        target_data = self.anchor_db[mssv]
+        anchor_embedding = target_data["embedding"].reshape(1, -1)
+        sim = float(cosine_similarity(current_embedding, anchor_embedding)[0][0])
 
         # 4. Kiểm tra với Threshold để quyết định kết quả
-        if best_similarity > FACE_SIMILARITY_THRESHOLD:
-            # Trạng thái 2: Khuôn mặt trùng khớp (Similarity > 0.55)
+        if sim > FACE_SIMILARITY_THRESHOLD:
+            # Trạng thái 2: Khuôn mặt trùng khớp
             return {
                 "status": "Match",
-                "name": best_name,
-                "similarity": round(best_similarity, 4),
+                "name": target_data["name"],
+                "similarity": round(sim, 4),
             }
         else:
-            # Trạng thái 3: Người lạ (Similarity <= 0.55)
+            # Trạng thái 3: Sai người / Người lạ
             return {
                 "status": "Unknown",
-                "name": "Người lạ",
-                "similarity": round(best_similarity, 4),
+                "name": "Sai người",
+                "similarity": round(sim, 4),
             }
 
     # ------------------------------------------------------------------
@@ -210,11 +206,33 @@ class AIEngine:
 
     def detect_objects(self, frame: np.ndarray) -> dict | None:
         """
-        Detect forbidden objects (phone, book, extra person) using YOLOv8.
-        TODO: Implement in next iteration after ArcFace pipeline is stable.
+        Detect forbidden and allowed objects using YOLOv8.
         """
-        # PLACEHOLDER — will return {detections: [...], alert} when implemented
-        return None
+        if self.object_detector is None:
+            return None
+
+        from backend.config import YOLO_CONFIDENCE_THRESHOLD, YOLO_FORBIDDEN_CLASSES, YOLO_ALLOWED_CLASSES
+
+        results = self.object_detector(frame, verbose=False)
+        detections = []
+        
+        for result in results:
+            boxes = result.boxes
+            for box in boxes:
+                conf = float(box.conf[0])
+                if conf < YOLO_CONFIDENCE_THRESHOLD:
+                    continue
+                
+                cls_id = int(box.cls[0])
+                class_name = self.object_detector.names[cls_id]
+                
+                if class_name in YOLO_FORBIDDEN_CLASSES or class_name in YOLO_ALLOWED_CLASSES:
+                    detections.append({
+                        "class": class_name,
+                        "confidence": round(conf, 4)
+                    })
+        
+        return {"detections": detections}
 
     # ------------------------------------------------------------------
     # Dynamic Enrollment (Phase 2 addition)

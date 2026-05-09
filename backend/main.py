@@ -125,9 +125,9 @@ async def process_frame(request: FrameRequest):
             timestamp=timestamp,
         )
 
-    # 2. Chạy AI pipeline
-    identity_result = engine.verify_identity(frame)
-    head_pose_result = engine.analyze_head_pose(frame)    # Trả về None (placeholder)
+    # 2. Run AI pipeline
+    identity_result = engine.verify_identity(frame, request.mssv)
+    head_pose_result = engine.analyze_head_pose(frame)    # Returns None (placeholder)
     objects_result = engine.detect_objects(frame)          # Trả về None (placeholder)
 
     # 3. Xây dựng danh sách cảnh báo
@@ -259,14 +259,16 @@ async def list_sessions():
 # ------------------------------------------------------------------
 
 def _build_alerts(identity: dict, head_pose: dict | None, objects: dict | None) -> list[str]:
-    """Biên dịch các chuỗi cảnh báo có thể đọc được từ kết quả AI."""
+    """Compile human-readable alert strings from AI results."""
     alerts = []
 
-    # Cảnh báo nhận diện danh tính
+    # Identity alerts
     if identity["status"] == "Match":
-        alerts.append(f"✅ KHỚP: {identity['name']} (tương đồng: {identity['similarity']})")
+        alerts.append(f"✅ ĐÚNG NGƯỜI: {identity['name']} (sim: {identity['similarity']})")
     elif identity["status"] == "Unknown":
-        alerts.append(f"⚠️ NGƯỜI LẠ (tương đồng: {identity['similarity']})")
+        alerts.append(f"⚠️ SAI NGƯỜI: Phát hiện gian lận (sim: {identity['similarity']})")
+    elif identity["status"] == "Error":
+        alerts.append(f"❌ LỖI: MSSV chưa được đăng ký dữ liệu khuôn mặt")
     else:
         alerts.append(f"⚠️ KHÔNG CÓ KHUÔN MẶT")
 
@@ -274,9 +276,18 @@ def _build_alerts(identity: dict, head_pose: dict | None, objects: dict | None) 
     if head_pose:
         pass  # TODO: Phân tích head_pose dict và tạo cảnh báo
 
-    # Cảnh báo phát hiện vật thể (placeholder — sẽ thêm khi triển khai)
-    if objects:
-        pass  # TODO: Phân tích objects dict và tạo cảnh báo
+    # Cảnh báo phát hiện vật thể
+    if objects and "detections" in objects:
+        for det in objects["detections"]:
+            cls_name = det["class"]
+            conf = det["confidence"]
+            
+            if cls_name == "cell phone":
+                alerts.append(f"⚠️ GIAN LẬN: Phát hiện điện thoại ({conf:.2f})")
+            elif cls_name == "book":
+                alerts.append(f"⚠️ GIAN LẬN: Phát hiện tài liệu/sách ({conf:.2f})")
+            elif cls_name == "laptop":
+                alerts.append(f"✅ HỢP LỆ: Máy tính xách tay ({conf:.2f})")
 
     return alerts
 

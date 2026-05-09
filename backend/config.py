@@ -16,10 +16,11 @@ FACE_SIMILARITY_THRESHOLD = 0.55   # Cosine similarity >= this → Match
 HEAD_YAW_THRESHOLD = 30.0    # degrees — liếc trái/phải
 HEAD_PITCH_THRESHOLD = 25.0  # degrees — cúi/ngẩng
 
-# --- YOLOv8 Object Detection (Placeholder thresholds) ---
+# --- YOLOv8 Object Detection (Thresholds) ---
 YOLO_MODEL_PATH = "yolov8n.pt"
 YOLO_CONFIDENCE_THRESHOLD = 0.5
-YOLO_FORBIDDEN_CLASSES = ["cell phone", "book", "laptop"]
+YOLO_FORBIDDEN_CLASSES = ["cell phone", "book"]
+YOLO_ALLOWED_CLASSES = ["laptop"]
 
 # --- Webcam Capture ---
 CAPTURE_INTERVAL_MS = 2000  # Client-side capture interval

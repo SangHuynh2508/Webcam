@@ -67,6 +67,7 @@ btnStart.addEventListener('click', async () => {
         if (!stream) {
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
             video.srcObject = stream;
+            await video.play();
         }
     } catch (err) {
         logConsole('Không thể truy cập webcam!', 'danger');
@@ -118,10 +119,18 @@ async function captureAndSend(mssv) {
 
         const data = await response.json();
         
-        // d. Hiển thị log dựa theo kết quả server (Ví dụ server trả về status và message)
-        // Giả sử: data.status có thể là 'ok', 'warning', 'danger'
-        const statusType = data.status ? data.status.toLowerCase() : 'ok';
-        logConsole(data.message || 'Frame nhận thành công.', statusType);
+        // d. Hiển thị log dựa theo kết quả server
+        if (data.alerts && data.alerts.length > 0) {
+            data.alerts.forEach(alertText => {
+                let type = 'ok';
+                if (alertText.includes('⚠️')) type = 'danger'; // Cảnh báo đỏ cho Sai người hoặc Không có mặt
+                if (alertText.includes('❌')) type = 'danger'; // Lỗi
+                if (alertText.includes('✅')) type = 'ok';     // Xanh lá
+                logConsole(alertText, type);
+            });
+        } else {
+            logConsole('Frame nhận thành công nhưng không có kết quả AI.', 'warning');
+        }
 
     } catch (error) {
         logConsole('Lỗi gửi frame! Server timeout hoặc down.', 'danger');
