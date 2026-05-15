@@ -15,6 +15,7 @@ from backend.config import (
     FACE_DETECTION_MODEL,
     FACE_SIMILARITY_THRESHOLD,
     YOLO_MODEL_PATH,
+    CUSTOM_YOLO_MODEL_PATH,
 )
 
 logger = logging.getLogger("anti_cheat.ai_engine")
@@ -26,7 +27,8 @@ class AIEngine:
     def __init__(self):
         self.face_analyzer = None    # insightface FaceAnalysis
         self.face_landmarker = None  # mediapipe FaceLandmarker
-        self.object_detector = None  # ultralytics YOLO
+        self.object_detector = None  # ultralytics YOLO (COCO)
+        self.custom_detector = None  # ultralytics YOLO (custom: calculator)
         self.anchor_db: dict = {}    # {MSSV: {"name": str, "embedding": np.ndarray}}
 
     # ------------------------------------------------------------------
@@ -38,6 +40,7 @@ class AIEngine:
         self._load_arcface()
         self._load_mediapipe()
         self._load_yolo()
+        self._load_custom_yolo()
 
     def _load_arcface(self):
         """Load InsightFace ArcFace model (ResNet100)."""
@@ -72,9 +75,23 @@ class AIEngine:
         try:
             from ultralytics import YOLO
             self.object_detector = YOLO(YOLO_MODEL_PATH)
-            logger.info("[YOLOv8] Model loaded successfully.")
+            logger.info("[YOLOv8] COCO model loaded successfully.")
         except Exception as e:
-            logger.warning(f"[YOLOv8] Failed to load (non-blocking): {e}")
+            logger.warning(f"[YOLOv8] Failed to load COCO model (non-blocking): {e}")
+
+    def _load_custom_yolo(self):
+        """Load custom YOLOv8 model for calculator detection."""
+        try:
+            import os
+            if not os.path.exists(CUSTOM_YOLO_MODEL_PATH):
+                logger.warning(f"[YOLOv8-Custom] Model not found: {CUSTOM_YOLO_MODEL_PATH}")
+                return
+            from ultralytics import YOLO
+            self.custom_detector = YOLO(CUSTOM_YOLO_MODEL_PATH)
+            class_names = list(self.custom_detector.names.values())
+            logger.info(f"[YOLOv8-Custom] Loaded successfully. Classes: {class_names}")
+        except Exception as e:
+            logger.warning(f"[YOLOv8-Custom] Failed to load (non-blocking): {e}")
 
     # ------------------------------------------------------------------
     # Phase 1: Anchor Embedding Extraction
@@ -159,10 +176,21 @@ class AIEngine:
                 "status": "No Face",
                 "name": "None",
                 "similarity": 0.0,
+                "face_bbox": None,
             }
 
         # 2. Tìm khuôn mặt to nhất (dựa trên diện tích bounding box)
         largest_face = max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
+
+        # Trích xuất bbox và chuẩn hóa về tỷ lệ 0-1 (để frontend vẽ trên mọi kích thước)
+        h, w = frame.shape[:2]
+        raw_bbox = largest_face.bbox  # [x1, y1, x2, y2] dạng pixel
+        face_bbox = {
+            "x1": round(float(raw_bbox[0]) / w, 4),
+            "y1": round(float(raw_bbox[1]) / h, 4),
+            "x2": round(float(raw_bbox[2]) / w, 4),
+            "y2": round(float(raw_bbox[3]) / h, 4),
+        }
         
         # Reshape thành mảng 2D (1, 512) để tính cosine_similarity
         current_embedding = largest_face.embedding.reshape(1, -1)
@@ -179,6 +207,7 @@ class AIEngine:
                 "status": "Match",
                 "name": target_data["name"],
                 "similarity": round(sim, 4),
+                "face_bbox": face_bbox,
             }
         else:
             # Trạng thái 3: Sai người / Người lạ
@@ -186,6 +215,7 @@ class AIEngine:
                 "status": "Unknown",
                 "name": "Sai người",
                 "similarity": round(sim, 4),
+                "face_bbox": face_bbox,
             }
 
     # ------------------------------------------------------------------
@@ -204,35 +234,121 @@ class AIEngine:
     # Phase 3: YOLOv8 Object Detection (PLACEHOLDER)
     # ------------------------------------------------------------------
 
+    def _compute_iou(self, box1, box2):
+        x_left = max(box1[0], box2[0])
+        y_top = max(box1[1], box2[1])
+        x_right = min(box1[2], box2[2])
+        y_bottom = min(box1[3], box2[3])
+
+        if x_right < x_left or y_bottom < y_top:
+            return 0.0
+
+        intersection_area = (x_right - x_left) * (y_bottom - y_top)
+        box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
+        box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
+
+        return intersection_area / float(box1_area + box2_area - intersection_area)
+
     def detect_objects(self, frame: np.ndarray) -> dict | None:
         """
-        Detect forbidden and allowed objects using YOLOv8.
+        Detect objects using dual YOLO models:
+        - COCO model: phone, book, person, etc.
+        - Custom model: calculator (and other custom-trained classes)
+        Merges results from both models and resolves bounding box overlaps (IoU).
         """
-        if self.object_detector is None:
+        if self.object_detector is None and self.custom_detector is None:
             return None
 
-        from backend.config import YOLO_CONFIDENCE_THRESHOLD, YOLO_FORBIDDEN_CLASSES, YOLO_ALLOWED_CLASSES
+        from backend.config import YOLO_CONFIDENCE_THRESHOLD, YOLO_RULES, YOLO_MAX_PERSONS
 
-        results = self.object_detector(frame, verbose=False)
-        detections = []
-        
-        for result in results:
-            boxes = result.boxes
-            for box in boxes:
-                conf = float(box.conf[0])
-                if conf < YOLO_CONFIDENCE_THRESHOLD:
-                    continue
+        coco_detections = []
+        custom_detections = []
+        person_count = 0
+
+        # --- Model 1: COCO (yolov8n.pt) ---
+        if self.object_detector is not None:
+            results = self.object_detector(frame, verbose=False)
+            for result in results:
+                for box in result.boxes:
+                    conf = float(box.conf[0])
+                    if conf < YOLO_CONFIDENCE_THRESHOLD:
+                        continue
+                    cls_id = int(box.cls[0])
+                    class_name = self.object_detector.names[cls_id]
+
+                    if class_name == "person":
+                        person_count += 1
+
+                    if class_name in YOLO_RULES:
+                        coco_detections.append({
+                            "class": class_name,
+                            "confidence": round(conf, 4),
+                            "level": YOLO_RULES[class_name]["level"],
+                            "label": YOLO_RULES[class_name]["label"],
+                            "source": "coco",
+                            "bbox": box.xyxy[0].tolist()
+                        })
+
+        # --- Model 2: Custom (best.pt — calculator, etc.) ---
+        if self.custom_detector is not None:
+            custom_results = self.custom_detector(frame, verbose=False)
+            for result in custom_results:
+                for box in result.boxes:
+                    conf = float(box.conf[0])
+                    if conf < YOLO_CONFIDENCE_THRESHOLD:
+                        continue
+                    cls_id = int(box.cls[0])
+                    raw_class_name = self.custom_detector.names[cls_id]
+                    
+                    # Chuẩn hóa tên class: Nếu model train chứa từ "calculator" (ví dụ: "Calculator - V1...")
+                    # thì quy về chuẩn "calculator" để ăn khớp với YOLO_RULES.
+                    if "calculator" in raw_class_name.lower():
+                        class_name = "calculator"
+                    else:
+                        class_name = raw_class_name
+
+                    bbox_list = box.xyxy[0].tolist()
+
+                    # Map custom class name vào YOLO_RULES nếu có
+                    if class_name in YOLO_RULES:
+                        custom_detections.append({
+                            "class": class_name,
+                            "confidence": round(conf, 4),
+                            "level": YOLO_RULES[class_name]["level"],
+                            "label": YOLO_RULES[class_name]["label"],
+                            "source": "custom",
+                            "bbox": bbox_list
+                        })
+                    else:
+                        # Bỏ qua các class rác (như "---") từ custom model thay vì đánh đồng là CRITICAL
+                        continue
+
+        # --- Resolve Overlaps (NMS across models) ---
+        # If COCO detects a cell phone and Custom detects a calculator at the same spot,
+        # we trust the Custom model more and drop the COCO detection.
+        final_detections = []
+        for c_det in coco_detections:
+            overlap = False
+            for cust_det in custom_detections:
+                iou = self._compute_iou(c_det["bbox"], cust_det["bbox"])
+                # Hạ IoU xuống 0.1 để bắt độ trùng lấp dễ hơn (đề phòng 2 model vẽ box lệch nhau)
+                if iou > 0.1:  
+                    overlap = True
+                    break
+            
+            if not overlap:
+                c_det.pop("bbox", None)
+                final_detections.append(c_det)
                 
-                cls_id = int(box.cls[0])
-                class_name = self.object_detector.names[cls_id]
-                
-                if class_name in YOLO_FORBIDDEN_CLASSES or class_name in YOLO_ALLOWED_CLASSES:
-                    detections.append({
-                        "class": class_name,
-                        "confidence": round(conf, 4)
-                    })
-        
-        return {"detections": detections}
+        for cust_det in custom_detections:
+            cust_det.pop("bbox", None)
+            final_detections.append(cust_det)
+
+        return {
+            "detections": final_detections,
+            "person_count": person_count,
+            "max_persons": YOLO_MAX_PERSONS,
+        }
 
     # ------------------------------------------------------------------
     # Dynamic Enrollment (Phase 2 addition)

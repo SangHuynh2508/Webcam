@@ -87,7 +87,8 @@ async def health_check():
         "models": {
             "arcface": engine.face_analyzer is not None,
             "mediapipe": engine.face_landmarker is not None,
-            "yolov8": engine.object_detector is not None,
+            "yolov8_coco": engine.object_detector is not None,
+            "yolov8_custom": engine.custom_detector is not None,
         },
     }
 
@@ -276,18 +277,28 @@ def _build_alerts(identity: dict, head_pose: dict | None, objects: dict | None) 
     if head_pose:
         pass  # TODO: Phân tích head_pose dict và tạo cảnh báo
 
-    # Cảnh báo phát hiện vật thể
-    if objects and "detections" in objects:
-        for det in objects["detections"]:
-            cls_name = det["class"]
+    # Cảnh báo phát hiện vật thể (đa tầng)
+    if objects:
+        # Đếm người — phát hiện thi hộ
+        person_count = objects.get("person_count", 0)
+        max_persons = objects.get("max_persons", 1)
+        if person_count > max_persons:
+            alerts.append(
+                f"🚨 CRITICAL: Phát hiện {person_count} người trong khung hình!"
+            )
+
+        # Phân loại vật thể theo mức độ
+        for det in objects.get("detections", []):
+            level = det.get("level", "OK")
+            label = det.get("label", det["class"])
             conf = det["confidence"]
-            
-            if cls_name == "cell phone":
-                alerts.append(f"⚠️ GIAN LẬN: Phát hiện điện thoại ({conf:.2f})")
-            elif cls_name == "book":
-                alerts.append(f"⚠️ GIAN LẬN: Phát hiện tài liệu/sách ({conf:.2f})")
-            elif cls_name == "laptop":
-                alerts.append(f"✅ HỢP LỆ: Máy tính xách tay ({conf:.2f})")
+
+            if level == "CRITICAL":
+                alerts.append(f"🚨 GIAN LẬN: {label} ({conf:.2f})")
+            elif level == "WARNING":
+                alerts.append(f"⚠️ CẢNH BÁO: {label} ({conf:.2f})")
+            elif level == "OK":
+                alerts.append(f"✅ HỢP LỆ: {label} ({conf:.2f})")
 
     return alerts
 

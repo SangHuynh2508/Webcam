@@ -15,6 +15,7 @@ class IdentityResult(BaseModel):
     status: str
     name: str
     similarity: float
+    face_bbox: dict | None = None  # {x1, y1, x2, y2} normalized 0-1
 
 
 class FrameResponse(BaseModel):

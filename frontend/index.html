@@ -34,7 +34,11 @@
             <!-- Layout 2 cột -->
             <div class="monitoring-layout">
                 <div class="webcam-box">
-                    <video id="webcam" autoplay playsinline muted></video>
+                    <div class="video-container" style="position: relative; display: inline-block; width: 100%;">
+                        <video id="webcam" autoplay playsinline muted></video>
+                        <!-- Canvas overlay để vẽ bbox lên trên video -->
+                        <canvas id="overlay-canvas"></canvas>
+                    </div>
                     <!-- Canvas ẩn để trích xuất frame -->
                     <canvas id="hidden-canvas" style="display: none;"></canvas>
                 </div>
@@ -48,6 +52,8 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- MediaPipe Vision for client-side real-time face tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs" type="module"></script>
+    <script src="app.js" type="module"></script>
 </body>
 </html>
