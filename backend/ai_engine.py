@@ -287,7 +287,7 @@ class AIEngine:
     # Phase 3: YOLOv8 Object Detection (PLACEHOLDER)
     # ------------------------------------------------------------------
 
-    def _compute_iou(self, box1, box2):
+    def _compute_overlap_ratio(self, box1, box2):
         x_left = max(box1[0], box2[0])
         y_top = max(box1[1], box2[1])
         x_right = min(box1[2], box2[2])
@@ -300,7 +300,13 @@ class AIEngine:
         box1_area = (box1[2] - box1[0]) * (box1[3] - box1[1])
         box2_area = (box2[2] - box2[0]) * (box2[3] - box2[1])
 
-        return intersection_area / float(box1_area + box2_area - intersection_area)
+        # Sử dụng Intersection over Minimum Area (IoM) thay vì IoU
+        # Tránh trường hợp 1 box quá nhỏ nằm trong 1 box rất to dẫn đến IoU quá thấp
+        min_area = min(box1_area, box2_area)
+        if min_area == 0:
+            return 0.0
+            
+        return intersection_area / float(min_area)
 
     def detect_objects(self, frame: np.ndarray) -> dict | None:
         """
@@ -376,26 +382,42 @@ class AIEngine:
                         # Bỏ qua các class rác (như "---") từ custom model thay vì đánh đồng là CRITICAL
                         continue
 
-        # --- Resolve Overlaps (NMS across models) ---
-        # If COCO detects a cell phone and Custom detects a calculator at the same spot,
-        # we trust the Custom model more and drop the COCO detection.
+        # --- Gộp chung tất cả detection lại để xử lý đè hộp (Unified NMS) ---
+        all_detections = coco_detections + custom_detections
+        
+        # Priority mapping: số càng nhỏ ưu tiên càng cao.
+        # Mục đích: Nếu 1 vật thể vừa bị nhận diện là 'cell phone' vừa là 'calculator',
+        # ta tin tưởng nó là 'calculator' (vì custom model chuyên biệt hơn).
+        def get_priority(class_name):
+            if class_name == "calculator":
+                return 1
+            if class_name == "cell phone":
+                return 2
+            return 3
+
+        # Sắp xếp theo ưu tiên (calculator lên đầu), sau đó theo độ tin cậy (cao xuống thấp)
+        all_detections.sort(key=lambda x: (get_priority(x["class"]), -x["confidence"]))
+
         final_detections = []
-        for c_det in coco_detections:
+        for det in all_detections:
             overlap = False
-            for cust_det in custom_detections:
-                iou = self._compute_iou(c_det["bbox"], cust_det["bbox"])
-                # Hạ IoU xuống 0.1 để bắt độ trùng lấp dễ hơn (đề phòng 2 model vẽ box lệch nhau)
-                if iou > 0.1:  
+            for final_det in final_detections:
+                # Tính độ đè nhau giữa box hiện tại và các box đã được chọn
+                overlap_ratio = self._compute_overlap_ratio(det["bbox"], final_det["bbox"])
+                # Nếu đè lên nhau >= 10% (Rất lỏng để bắt mọi trường hợp 2 model vẽ lệch)
+                if overlap_ratio > 0.1:
                     overlap = True
                     break
             
             if not overlap:
-                c_det.pop("bbox", None)
-                final_detections.append(c_det)
-                
-        for cust_det in custom_detections:
-            cust_det.pop("bbox", None)
-            final_detections.append(cust_det)
+                # Thêm vào danh sách cuối cùng nếu không bị đè với các box ưu tiên cao hơn
+                final_detections.append(det)
+
+        # Xóa bbox khỏi kết quả cuối cùng trước khi trả về frontend (để giảm payload nếu không cần)
+        # Hoặc giữ lại nếu frontend cần vẽ bounding box (như hiện tại mình đang để lại bbox cho frontend)
+        for det in final_detections:
+            # Xóa bbox đi vì frontend hiện chỉ hiển thị danh sách (không vẽ box cho đồ vật)
+            det.pop("bbox", None)
 
         return {
             "detections": final_detections,

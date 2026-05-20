@@ -518,8 +518,14 @@ async def process_frame(request: FrameRequest, db: Session = Depends(get_db)):
 
     # 3. Run AI Analytics Pipeline
     identity_result = engine.verify_identity(frame, request.mssv)
-    head_pose_result = engine.analyze_head_pose(frame)
-    objects_result = engine.detect_objects(frame)
+    
+    # Tối ưu hóa: Nếu MSSV chưa đăng ký, bỏ qua bước nhận diện đồ vật (để tiết kiệm CPU)
+    if identity_result["status"] == "Error":
+        head_pose_result = None
+        objects_result = None
+    else:
+        head_pose_result = engine.analyze_head_pose(frame)
+        objects_result = engine.detect_objects(frame)
 
     # 4. Compile Human-Readable Alerts
     alerts = _build_alerts(identity_result, head_pose_result, objects_result)

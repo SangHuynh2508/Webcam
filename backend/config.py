@@ -35,6 +35,8 @@ YOLO_RULES = {
     "suitcase":     {"level": "WARNING", "label": "Vali/cặp trên bàn"},
     "clock":        {"level": "WARNING", "label": "Đồng hồ (có thể là smartwatch)"},
     "scissors":     {"level": "WARNING", "label": "Kéo/vật sắc nhọn"},
+    "tie":          {"level": "WARNING", "label": "Cà vạt (nghi ngờ giấu mic/camera)"},
+    "wine glass":   {"level": "WARNING", "label": "Ly rượu/đồ uống cồn"},
 
     # === HỢP LỆ — Cho phép trong phòng thi ===
     "laptop":       {"level": "OK", "label": "Laptop"},
@@ -43,6 +45,7 @@ YOLO_RULES = {
     "tv":           {"level": "OK", "label": "Màn hình"},
     "cup":          {"level": "OK", "label": "Cốc/ly"},
     "bottle":       {"level": "OK", "label": "Chai nước"},
+    "chair":        {"level": "OK", "label": "Ghế ngồi"},
     "calculator":   {"level": "OK", "label": "Máy tính Casio"},  # Custom model
 }
 
