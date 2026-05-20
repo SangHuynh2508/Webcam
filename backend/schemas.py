@@ -25,3 +25,64 @@ class FrameResponse(BaseModel):
     objects: dict | None = None     # Placeholder for YOLOv8
     alerts: list[str]
     timestamp: str
+
+
+# --- User & Room Authentication / Authorization Schemas ---
+from typing import Optional, List
+
+class UserRegister(BaseModel):
+    username: str
+    password: str
+    full_name: str
+    role: str  # "admin", "teacher", "student"
+    mssv: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    full_name: str
+    role: str
+    mssv: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: UserResponse
+
+
+class RoomCreate(BaseModel):
+    room_code: str
+    title: str
+    description: Optional[str] = None
+
+
+class RoomResponse(BaseModel):
+    id: int
+    room_code: str
+    title: str
+    description: Optional[str] = None
+    teacher_id: int
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class RoomStudentEnroll(BaseModel):
+    room_code: str
+    mssv: str
+
+
+class ExamSessionStart(BaseModel):
+    room_code: str
+

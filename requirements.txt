@@ -11,3 +11,9 @@ ultralytics>=8.2.0
 opencv-python>=4.10.0
 numpy>=1.26.0
 scikit-learn>=1.5.0
+
+# Database & Authentication
+sqlalchemy>=2.0.0
+passlib[bcrypt]>=1.7.4
+pyjwt>=2.8.0
+
