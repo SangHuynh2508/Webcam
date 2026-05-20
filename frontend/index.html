@@ -4,48 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ thống Giám sát thi</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <!-- Khu vực Enrollment -->
-        <div class="panel">
-            <h2>Đăng ký Thí sinh</h2>
-            <form id="enrollForm">
-                <input type="text" id="reg-mssv" placeholder="Nhập MSSV" required>
-                <input type="text" id="reg-name" placeholder="Họ và Tên" required>
-                <input type="file" id="reg-image" accept="image/*" required>
-                <button type="submit" class="btn">Đăng ký</button>
-            </form>
-            <div id="enroll-status"></div>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="logo">Webcam<span>Guard</span></div>
+            <nav id="nav-links"></nav>
+            <div id="user-info" class="user-info"></div>
         </div>
+    </header>
 
-        <hr>
+    <div class="container">
+        <!-- 1. MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ -->
+        <section id="view-auth" class="view">
+            <div class="auth-card">
+                <div class="auth-tabs">
+                    <button class="tab-btn active" onclick="switchAuthTab('login')">Đăng nhập</button>
+                    <button class="tab-btn" onclick="switchAuthTab('register')">Đăng ký</button>
+                </div>
+                <form id="loginForm" class="auth-form">
+                    <input type="text" id="login-mssv" placeholder="Nhập MSSV hoặc Username" required>
+                    <select id="login-role">
+                        <option value="student">Sinh viên</option>
+                        <option value="teacher">Giảng viên</option>
+                    </select>
+                    <button type="submit" class="btn btn-primary">Vào hệ thống</button>
+                </form>
+            </div>
+        </section>
 
-        <!-- Khu vực Giám sát -->
-        <div class="panel">
-            <h2>Giám sát Real-time</h2>
-            <div class="controls">
-                <input type="text" id="mon-mssv" placeholder="Nhập MSSV giám sát" required>
-                <button id="btn-start" class="btn btn-primary">Bắt đầu giám sát</button>
-                <button id="btn-stop" class="btn btn-danger" disabled>Dừng</button>
+        <!-- 2. MÀN HÌNH GIẢNG VIÊN (Teacher Dashboard) -->
+        <section id="view-teacher" class="view hidden">
+            <div class="dashboard-grid">
+                <div class="card">
+                    <h3>Tạo Phòng Thi Mới</h3>
+                    <form id="createRoomForm" class="inline-form">
+                        <input type="text" id="room-name-input" placeholder="Tên phòng (ví dụ: Thi cuối kỳ K65)" required>
+                        <button type="submit" class="btn btn-ok">Tạo phòng</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>Phòng thi đã tạo</h3>
+                    <div id="teacher-room-list" class="room-grid-small">
+                        <!-- Danh sách phòng thi sẽ hiện ở đây -->
+                    </div>
+                </div>
+                <div class="card">
+                    <h3>Đăng ký Thí sinh (Enrollment)</h3>
+                    <form id="enrollForm">
+                        <input type="text" id="reg-mssv" placeholder="Nhập MSSV" required>
+                        <input type="text" id="reg-name" placeholder="Họ và Tên" required>
+                        <div class="file-input-wrapper">
+                            <label for="reg-image">Ảnh chân dung đối chiếu:</label>
+                            <input type="file" id="reg-image" accept="image/*" required>
+                        </div>
+                        <button type="submit" class="btn">Thêm sinh viên</button>
+                    </form>
+                    <div id="enroll-status"></div>
+                </div>
+                <div class="card full-width">
+                    <h3>Bảng theo dõi vi phạm (Toàn hệ thống)</h3>
+                    <div id="teacher-violation-log" class="console-box violation-monitor">
+                        <div class="log-entry">Đang chờ dữ liệu giám sát...</div>
+                    </div>
+                    <button onclick="refreshViolations()" class="btn btn-sm" style="margin-top: 10px;">Làm mới danh sách</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. MÀN HÌNH SINH VIÊN (Student Dashboard) -->
+        <section id="view-student" class="view hidden">
+            <div class="card">
+                <h3>Chọn bài thi để bắt đầu</h3>
+                <div id="room-list" class="room-grid">
+                    <!-- Rooms will be rendered here -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. MÀN HÌNH GIÁM SÁT (Monitoring View) -->
+        <section id="view-monitor" class="view hidden">
+            <div class="monitor-header">
+                <h2 id="current-room-title">Phòng thi</h2>
+                <div class="monitor-actions">
+                    <span id="current-user-display">MSSV: ---</span>
+                    <button id="btn-start" class="btn btn-primary">Bật Camera & Bắt đầu</button>
+                    <button id="btn-stop" class="btn btn-danger" disabled>Thoát phòng</button>
+                </div>
             </div>
 
-            <!-- Layout 2 cột -->
             <div class="monitoring-layout">
-                <div class="webcam-box">
-                    <div class="video-container" style="position: relative; display: inline-block; width: 100%;">
+                <div class="webcam-box card">
+                    <div class="video-container">
                         <video id="webcam" autoplay playsinline muted></video>
-                        <!-- Canvas overlay để vẽ bbox lên trên video -->
                         <canvas id="overlay-canvas"></canvas>
                     </div>
-                    <!-- Canvas ẩn để trích xuất frame -->
                     <canvas id="hidden-canvas" style="display: none;"></canvas>
                 </div>
                 
-                <div class="console-box" id="console-wrapper">
+                <div class="console-box card" id="console-wrapper">
                     <div id="console-log">
-                        <div class="log-entry"><span class="log-time">[System]</span> <span class="log-ok">Sẵn sàng...</span></div>
+                        <div class="log-entry"><span class="log-time">[Hệ thống]</span> <span class="log-ok">Vui lòng bấm 'Bắt đầu' để AI kiểm tra danh tính.</span></div>
                     </div>
                 </div>
             </div>
