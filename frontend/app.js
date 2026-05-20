@@ -26,6 +26,7 @@ let monitorInterval = null;
 let faceDetector = null;
 let clientTrackingRAF = null;  // requestAnimationFrame ID
 let lastServerIdentity = null; // Latest identity result from server
+let isMonitoring = false;      // Flag để chặn các request đang delay khi bấm Stop
 
 // ==========================================
 // 0. INIT MediaPipe Face Detector (client-side, lightweight)
@@ -79,8 +80,9 @@ enrollForm.addEventListener('submit', async (e) => {
             enrollStatus.textContent = `Đăng ký thành công MSSV: ${mssv}`;
             enrollForm.reset();
         } else {
+            const errData = await response.json();
             enrollStatus.style.color = "red";
-            enrollStatus.textContent = "Lỗi đăng ký từ server!";
+            enrollStatus.textContent = `Lỗi: ${errData.message || 'Không xác định'}`;
         }
     } catch (error) {
         enrollStatus.style.color = "red";
@@ -116,6 +118,7 @@ btnStart.addEventListener('click', async () => {
     }
 
     // 3. Chuyển đổi trạng thái UI
+    isMonitoring = true;
     btnStart.disabled = true;
     btnStop.disabled = false;
     inputMonMssv.disabled = true;
@@ -129,6 +132,7 @@ btnStart.addEventListener('click', async () => {
 });
 
 btnStop.addEventListener('click', () => {
+    isMonitoring = false;
     clearInterval(monitorInterval);
     stopClientTracking();
 
@@ -260,6 +264,9 @@ async function captureAndSend(mssv) {
         
         // Cập nhật identity result cho client-side tracking sử dụng
         lastServerIdentity = data.identity;
+        
+        // NẾU NGƯỜI DÙNG ĐÃ ẤN STOP TRONG LÚC ĐANG CHỜ API TRẢ VỀ, BỎ QUA KẾT QUẢ NÀY
+        if (!isMonitoring) return;
 
         // Nếu KHÔNG có client-side tracker → fallback vẽ bbox từ server
         if (!faceDetector) {
@@ -281,7 +288,9 @@ async function captureAndSend(mssv) {
         }
 
     } catch (error) {
-        logConsole('Lỗi gửi frame! Server timeout hoặc down.', 'danger');
+        if (isMonitoring) {
+            logConsole('Lỗi gửi frame! Server timeout hoặc down.', 'danger');
+        }
     }
 }
 

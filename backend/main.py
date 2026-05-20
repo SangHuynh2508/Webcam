@@ -128,8 +128,14 @@ async def process_frame(request: FrameRequest):
 
     # 2. Run AI pipeline
     identity_result = engine.verify_identity(frame, request.mssv)
-    head_pose_result = engine.analyze_head_pose(frame)    # Returns None (placeholder)
-    objects_result = engine.detect_objects(frame)          # Trả về None (placeholder)
+    
+    # Tối ưu hóa: Nếu MSSV chưa đăng ký, bỏ qua bước nhận diện đồ vật (để tiết kiệm CPU)
+    if identity_result["status"] == "Error":
+        head_pose_result = None
+        objects_result = None
+    else:
+        head_pose_result = engine.analyze_head_pose(frame)
+        objects_result = engine.detect_objects(frame)
 
     # 3. Xây dựng danh sách cảnh báo
     alerts = _build_alerts(identity_result, head_pose_result, objects_result)
@@ -158,13 +164,13 @@ async def process_frame(request: FrameRequest):
 async def add_student(
     mssv: str = Form(...),
     name: str = Form(...),
-    photo: UploadFile = File(...),
+    image: UploadFile = File(...),
 ):
     """
     Đăng ký động khuôn mặt sinh viên — tải ảnh qua form web.
     Trích xuất embedding ArcFace, cập nhật RAM + lưu file vào data/anchor/.
     """
-    image_bytes = await photo.read()
+    image_bytes = await image.read()
 
     if not image_bytes:
         return JSONResponse(
