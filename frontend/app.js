@@ -8,25 +8,165 @@ import { FaceDetector, FilesetResolver } from
 const enrollForm = document.getElementById('enrollForm');
 const enrollStatus = document.getElementById('enroll-status');
 
-const video = document.getElementById('webcam');
 const canvas = document.getElementById('hidden-canvas');
 const ctx = canvas.getContext('2d');
 const overlayCanvas = document.getElementById('overlay-canvas');
 const overlayCtx = overlayCanvas.getContext('2d');
 const btnStart = document.getElementById('btn-start');
 const btnStop = document.getElementById('btn-stop');
-const inputMonMssv = document.getElementById('mon-mssv');
 const consoleLog = document.getElementById('console-log');
 const consoleWrapper = document.getElementById('console-wrapper');
 
+const video = document.getElementById('webcam');
+const loginForm = document.getElementById('loginForm');
+const userInfoDiv = document.getElementById('user-info');
+
 let stream = null;
 let monitorInterval = null;
+let currentUser = null; // { mssv: string, name: string, role: string }
+let rooms = [
+    { id: 1, name: "Thi giữa kỳ môn AI", teacher: "Admin" },
+    { id: 2, name: "Kiểm tra lập trình Web", teacher: "Admin" }
+];
+let violationPolling = null;
 
 // --- Client-side face tracking state ---
 let faceDetector = null;
 let clientTrackingRAF = null;  // requestAnimationFrame ID
 let lastServerIdentity = null; // Latest identity result from server
 let isMonitoring = false;      // Flag để chặn các request đang delay khi bấm Stop
+
+// ==========================================
+// XỬ LÝ GIAO DIỆN & PHÂN QUYỀN
+// ==========================================
+function showView(viewId) {
+    document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
+    document.getElementById(viewId).classList.remove('hidden');
+}
+
+window.switchAuthTab = (tab) => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+};
+
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const mssv = document.getElementById('login-mssv').value;
+    const role = document.getElementById('login-role').value;
+
+    // Giả lập Login
+    currentUser = { mssv: mssv, name: "Thí sinh " + mssv, role: role };
+    
+    userInfoDiv.innerHTML = `
+        <span>${currentUser.name} (${role})</span>
+        <button onclick="logout()" class="btn-sm">Đăng xuất</button>
+    `;
+
+    if (role === 'teacher') {
+        showView('view-teacher');
+        renderTeacherDashboard();
+        startViolationPolling();
+    } else {
+        showView('view-student');
+        renderStudentDashboard();
+    }
+});
+
+window.logout = () => {
+    location.reload();
+};
+
+window.joinRoom = (roomName) => {
+    if (!currentUser) return;
+    document.getElementById('current-room-title').textContent = roomName;
+    document.getElementById('current-user-display').textContent = `MSSV: ${currentUser.mssv}`;
+    showView('view-monitor');
+};
+
+document.getElementById('createRoomForm')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const nameInput = document.getElementById('room-name-input');
+    const name = nameInput.value;
+    
+    const newRoom = {
+        id: Date.now(),
+        name: name,
+        teacher: currentUser.name
+    };
+    
+    rooms.push(newRoom);
+    nameInput.value = '';
+    renderTeacherDashboard();
+    alert(`Đã tạo bài thi: ${name}`);
+});
+
+function renderTeacherDashboard() {
+    const list = document.getElementById('teacher-room-list');
+    if (!list) return;
+    list.innerHTML = rooms.map(room => `
+        <div class="room-item-small">
+            <span><strong>${room.name}</strong></span>
+            <span class="status-badge">Đang mở</span>
+        </div>
+    `).join('');
+}
+
+function renderStudentDashboard() {
+    const list = document.getElementById('room-list');
+    if (!list) return;
+    list.innerHTML = rooms.map(room => `
+        <div class="room-item">
+            <h4>${room.name}</h4>
+            <p>Giảng viên: ${room.teacher}</p>
+            <button class="btn btn-primary" onclick="joinRoom('${room.name}')">Vào thi ngay</button>
+        </div>
+    `).join('');
+}
+
+// --- GIÁM SÁT VI PHẠM (Dành cho Giảng viên) ---
+function startViolationPolling() {
+    if (violationPolling) clearInterval(violationPolling);
+    refreshViolations();
+    // Tự động cập nhật mỗi 5 giây
+    violationPolling = setInterval(refreshViolations, 5000);
+}
+
+window.refreshViolations = async () => {
+    try {
+        const response = await fetch('/api/logs?limit=20');
+        const result = await response.json();
+        
+        if (result.status === 'ok') {
+            renderViolationLogs(result.data);
+        }
+    } catch (err) {
+        console.error("Không thể tải log vi phạm:", err);
+    }
+};
+
+function renderViolationLogs(logs) {
+    const container = document.getElementById('teacher-violation-log');
+    if (!container) return;
+
+    if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="log-entry">Chưa có dữ liệu giám sát nào.</div>';
+        return;
+    }
+
+    container.innerHTML = logs.map(log => {
+        const hasAlert = log.alerts && log.alerts.length > 0;
+        const isCritical = log.alerts.includes('🚨') || log.alerts.includes('Unknown');
+        const rowClass = isCritical ? 'log-danger' : (hasAlert ? 'log-warning' : 'log-ok');
+        
+        return `
+            <div class="log-entry">
+                <span class="log-time">[${log.timestamp.split(' ')[1]}]</span>
+                <strong>MSSV: ${log.mssv}</strong> - 
+                <span class="${rowClass}">${log.alerts || 'Bình thường'}</span>
+            </div>
+        `;
+    }).join('');
+}
 
 // ==========================================
 // 0. INIT MediaPipe Face Detector (client-side, lightweight)
@@ -94,11 +234,11 @@ enrollForm.addEventListener('submit', async (e) => {
 // B. GIÁM SÁT (MONITORING)
 // ==========================================
 btnStart.addEventListener('click', async () => {
-    const mssv = inputMonMssv.value.trim();
-    if (!mssv) {
-        alert('Vui lòng nhập MSSV trước khi giám sát!');
+    if (!currentUser) {
+        alert('Lỗi: Không tìm thấy thông tin thí sinh!');
         return;
     }
+    const mssv = currentUser.mssv;
 
     // 1. Mở Webcam
     try {
@@ -121,7 +261,6 @@ btnStart.addEventListener('click', async () => {
     isMonitoring = true;
     btnStart.disabled = true;
     btnStop.disabled = false;
-    inputMonMssv.disabled = true;
     logConsole(`Bắt đầu giám sát MSSV: ${mssv}`, 'ok');
 
     // 4. Start real-time client-side face tracking loop
@@ -138,11 +277,12 @@ btnStop.addEventListener('click', () => {
 
     btnStart.disabled = false;
     btnStop.disabled = true;
-    inputMonMssv.disabled = false;
     lastServerIdentity = null;
 
     // Clear overlay
     overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    
+    showView('view-student'); // Quay lại dashboard
 
     logConsole('Đã dừng giám sát.', 'warning');
 });

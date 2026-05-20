@@ -150,6 +150,59 @@ class AIEngine:
 
         logger.info(f"[Anchor] Loaded: {loaded} | Skipped: {skipped} | Total in DB: {len(self.anchor_db)}")
 
+    def load_db_anchors(self, db_session, room_id: int):
+        """
+        Load student reference face embeddings for a specific exam room from the database.
+        If embedding is not serialized yet, dynamically extract it from the image and cache it in the DB.
+        """
+        from backend.models import RoomStudent
+        
+        logger.info(f"[Anchor] Loading database anchors for room_id={room_id}...")
+        
+        enrollments = db_session.query(RoomStudent).filter(RoomStudent.room_id == room_id).all()
+        loaded = 0
+        skipped = 0
+        
+        for enroll in enrollments:
+            student = enroll.student
+            if not student or not student.mssv:
+                continue
+                
+            mssv = student.mssv
+            embedding_list = enroll.get_embedding()
+            
+            if embedding_list is not None:
+                # Use cached embedding
+                self.anchor_db[mssv] = {
+                    "name": student.full_name,
+                    "embedding": np.array(embedding_list, dtype=np.float32),
+                }
+                loaded += 1
+            elif enroll.face_image_path and os.path.exists(enroll.face_image_path):
+                # Fallback: extract embedding dynamically and cache it
+                img = cv2.imread(enroll.face_image_path)
+                if img is not None:
+                    faces = self.face_analyzer.get(img)
+                    if faces:
+                        embedding = faces[0].embedding
+                        enroll.set_embedding(embedding)
+                        db_session.add(enroll)
+                        
+                        self.anchor_db[mssv] = {
+                            "name": student.full_name,
+                            "embedding": embedding,
+                        }
+                        loaded += 1
+                        continue
+                logger.warning(f"[Anchor] Cannot read image path: {enroll.face_image_path}")
+                skipped += 1
+            else:
+                logger.warning(f"[Anchor] Missing face embedding and photo for student: {student.full_name}")
+                skipped += 1
+                
+        db_session.commit()
+        logger.info(f"[Anchor] Successfully loaded {loaded} anchors from DB for room {room_id}. Skipped: {skipped}")
+
     # ------------------------------------------------------------------
     # Phase 3: ArcFace Identity Verification (FULLY IMPLEMENTED)
     # ------------------------------------------------------------------
