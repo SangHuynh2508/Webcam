@@ -8,9 +8,7 @@ from fastapi import Depends, HTTPException, status, Header
 # Use standard pyjwt since we explicitly added pyjwt>=2.8.0.
 import jwt
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
 from backend.database import get_db
-from backend.models import User
 
 # Configuration
 SECRET_KEY = "SECRET_KEY_FOR_WEB_ANTI_CHEAT_WEBCAM_DETECTION_SYSTEM"
@@ -46,7 +44,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
-def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
+async def get_current_user(authorization: Optional[str] = Header(None), db = Depends(get_db)) -> dict:
     """
     FastAPI dependency to extract and authenticate the current user from the Authorization header.
     Supports both 'Bearer <token>' format and raw token strings.
@@ -84,7 +82,7 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
             headers={"WWW-Authenticate": "Bearer"},
         )
         
-    user = db.query(User).filter(User.username == username).first()
+    user = await db.get_user_by_username(username)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,11 +97,11 @@ def require_role(allowed_roles: list[str]):
     FastAPI dependency factory to restrict endpoint access to specific roles.
     Example: Depends(require_role(["admin", "teacher"]))
     """
-    def role_dependency(current_user: User = Depends(get_current_user)):
-        if current_user.role not in allowed_roles:
+    def role_dependency(current_user: dict = Depends(get_current_user)):
+        if current_user.get("role") not in allowed_roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Bạn không có quyền thực hiện hành động này."
-            )
+               )
         return current_user
     return role_dependency

@@ -1,12 +1,18 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hệ thống Giám sát thi</title>
+    <meta name="description" content="Hệ thống Giám sát thi chống gian lận trực tuyến thông qua Webcam.">
+    <meta property="og:title" content="Hệ thống Giám sát thi">
+    <meta property="og:description" content="Hệ thống Giám sát thi chống gian lận trực tuyến thông qua Webcam.">
+    <meta property="og:type" content="website">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2.0.3">
 </head>
+
 <body>
     <!-- Header -->
     <header class="main-header">
@@ -22,17 +28,62 @@
         <section id="view-auth" class="view">
             <div class="auth-card">
                 <div class="auth-tabs">
-                    <button class="tab-btn active" onclick="switchAuthTab('login')">Đăng nhập</button>
-                    <button class="tab-btn" onclick="switchAuthTab('register')">Đăng ký</button>
+                    <button id="tab-login" class="tab-btn active" onclick="switchAuthTab('login')">Đăng nhập</button>
+                    <button id="tab-register" class="tab-btn" onclick="switchAuthTab('register')">Đăng ký</button>
                 </div>
+
+                <!-- Form Đăng nhập -->
                 <form id="loginForm" class="auth-form">
-                    <input type="text" id="login-mssv" placeholder="Nhập MSSV hoặc Username" required>
-                    <select id="login-role">
-                        <option value="student">Sinh viên</option>
-                        <option value="teacher">Giảng viên</option>
-                    </select>
+                    <div class="form-group">
+                        <label for="login-username">Tên đăng nhập</label>
+                        <input type="text" id="login-username" placeholder="Nhập tên đăng nhập" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Mật khẩu</label>
+                        <input type="password" id="login-password" placeholder="Nhập mật khẩu" required>
+                    </div>
+                    <div id="login-error" class="error-message hidden"></div>
                     <button type="submit" class="btn btn-primary">Vào hệ thống</button>
                 </form>
+
+                <!-- Form Đăng ký -->
+                <form id="registerForm" class="auth-form hidden">
+                    <div class="form-group">
+                        <label for="register-fullname">Họ và Tên</label>
+                        <input type="text" id="register-fullname" placeholder="Nhập họ và tên" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-username">Tên đăng nhập</label>
+                        <input type="text" id="register-username" placeholder="Nhập tên đăng nhập" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Mật khẩu</label>
+                        <input type="password" id="register-password" placeholder="Nhập mật khẩu" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-role">Vai trò</label>
+                        <select id="register-role" onchange="toggleRegMssvField()">
+                            <option value="student">Sinh viên</option>
+                            <option value="teacher">Giảng viên</option>
+                        </select>
+                    </div>
+                    <div class="form-group" id="reg-mssv-group">
+                        <label for="register-mssv">Mã số sinh viên (MSSV)</label>
+                        <input type="text" id="register-mssv" placeholder="Nhập MSSV" required>
+                    </div>
+                    <div id="register-message" class="error-message hidden"></div>
+                    <button type="submit" class="btn btn-primary">Tạo tài khoản</button>
+                </form>
+
+                <!-- Thống kê tài khoản mẫu của hệ thống -->
+                <div class="helper-card">
+                    <h4>Tài khoản mẫu:</h4>
+                    <ul>
+                        <li><strong>Giảng viên:</strong> gv_quang / teacher123</li>
+                        <li><strong>Sinh viên:</strong> sv_sang / student123</li>
+                        <li><strong>Admin:</strong> admin / admin123</li>
+                    </ul>
+                </div>
             </div>
         </section>
 
@@ -42,7 +93,8 @@
                 <div class="card">
                     <h3>Tạo Phòng Thi Mới</h3>
                     <form id="createRoomForm" class="inline-form">
-                        <input type="text" id="room-name-input" placeholder="Tên phòng (ví dụ: Thi cuối kỳ K65)" required>
+                        <input type="text" id="room-name-input" placeholder="Tên phòng (ví dụ: Thi cuối kỳ K65)"
+                            required>
                         <button type="submit" class="btn btn-ok">Tạo phòng</button>
                     </form>
                 </div>
@@ -70,7 +122,8 @@
                     <div id="teacher-violation-log" class="console-box violation-monitor">
                         <div class="log-entry">Đang chờ dữ liệu giám sát...</div>
                     </div>
-                    <button onclick="refreshViolations()" class="btn btn-sm" style="margin-top: 10px;">Làm mới danh sách</button>
+                    <button onclick="refreshViolations()" class="btn btn-sm" style="margin-top: 10px;">Làm mới danh
+                        sách</button>
                 </div>
             </div>
         </section>
@@ -104,18 +157,20 @@
                     </div>
                     <canvas id="hidden-canvas" style="display: none;"></canvas>
                 </div>
-                
+
                 <div class="console-box card" id="console-wrapper">
                     <div id="console-log">
-                        <div class="log-entry"><span class="log-time">[Hệ thống]</span> <span class="log-ok">Vui lòng bấm 'Bắt đầu' để AI kiểm tra danh tính.</span></div>
+                        <div class="log-entry"><span class="log-time">[Hệ thống]</span> <span class="log-ok">Vui lòng
+                                bấm 'Bắt đầu' để AI kiểm tra danh tính.</span></div>
                     </div>
                 </div>
             </div>
-        </div>
+    </div>
     </div>
 
     <!-- MediaPipe Vision for client-side real-time face tracking -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs" type="module"></script>
-    <script src="app.js" type="module"></script>
+    <script src="app.js?v=2.0.3" type="module"></script>
 </body>
+
 </html>

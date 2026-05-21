@@ -59,3 +59,7 @@ JPEG_QUALITY = 0.7          # Canvas toDataURL quality
 # --- Server ---
 HOST = "0.0.0.0"
 PORT = 8000
+
+# --- MongoDB Database ---
+MONGODB_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "anti_cheat_db")

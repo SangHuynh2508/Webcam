@@ -8,7 +8,6 @@ import os
 import csv
 import logging
 from datetime import datetime
-from pathlib import Path
 
 from backend.config import LOG_DIR
 

@@ -207,7 +207,33 @@ class AIEngine:
     # Phase 3: ArcFace Identity Verification (FULLY IMPLEMENTED)
     # ------------------------------------------------------------------
 
-    def verify_identity(self, frame: np.ndarray, mssv: str) -> dict:
+    def load_room_anchors(self, anchors: list):
+        """
+        Load student reference face embeddings directly from the provided list
+        of anchor documents. This is used when starting an exam.
+        """
+        loaded = 0
+        skipped = 0
+        for anchor in anchors:
+            mssv = anchor.get("student_id")
+            if not mssv:
+                continue
+            
+            embedding_list = anchor.get("face_embedding")
+            if embedding_list and len(embedding_list) > 0:
+                self.anchor_db[mssv] = {
+                    "name": mssv,
+                    "embedding": np.array(embedding_list, dtype=np.float32),
+                }
+                loaded += 1
+            else:
+                logger.warning(f"[Anchor] Missing face embedding for student {mssv}")
+                skipped += 1
+                
+        logger.info(f"[Anchor] Successfully loaded {loaded} anchors from memory. Skipped: {skipped}")
+
+
+    def verify_identity(self, frame: np.ndarray, mssv: str, threshold: float = None) -> dict:
         """
         Phát hiện khuôn mặt to nhất trong frame và so khớp Cosine Similarity
         với embedding của mssv được cung cấp trong RAM (self.anchor_db).
@@ -254,7 +280,8 @@ class AIEngine:
         sim = float(cosine_similarity(current_embedding, anchor_embedding)[0][0])
 
         # 4. Kiểm tra với Threshold để quyết định kết quả
-        if sim > FACE_SIMILARITY_THRESHOLD:
+        t = threshold if threshold is not None else FACE_SIMILARITY_THRESHOLD
+        if sim > t:
             # Trạng thái 2: Khuôn mặt trùng khớp
             return {
                 "status": "Match",
@@ -272,16 +299,111 @@ class AIEngine:
             }
 
     # ------------------------------------------------------------------
-    # Phase 3: MediaPipe Head Pose (PLACEHOLDER)
+    # Phase 3: MediaPipe Head Pose Estimation (FULLY IMPLEMENTED)
     # ------------------------------------------------------------------
 
-    def analyze_head_pose(self, frame: np.ndarray) -> dict | None:
+    # 6 canonical 3D face model points (nose tip, chin, left/right eye corners, left/right mouth corners)
+    # Based on a generic anthropometric face model (units: arbitrary, relative scale matters)
+    _FACE_3D_MODEL = np.array([
+        [0.0, 0.0, 0.0],         # Nose tip
+        [0.0, -330.0, -65.0],     # Chin
+        [-225.0, 170.0, -135.0],  # Left eye left corner
+        [225.0, 170.0, -135.0],   # Right eye right corner
+        [-150.0, -150.0, -125.0], # Left mouth corner
+        [150.0, -150.0, -125.0],  # Right mouth corner
+    ], dtype=np.float64)
+
+    # Corresponding MediaPipe FaceMesh landmark indices (0-467)
+    _LANDMARK_INDICES = [1, 152, 33, 263, 61, 291]
+
+    def analyze_head_pose(
+        self,
+        frame: np.ndarray,
+        yaw_threshold: float = None,
+        pitch_threshold: float = None,
+    ) -> dict | None:
         """
-        Analyze head orientation (Yaw, Pitch, Roll) using MediaPipe.
-        TODO: Implement in next iteration after ArcFace pipeline is stable.
+        Analyze head orientation (Yaw, Pitch, Roll) using MediaPipe FaceMesh + cv2.solvePnP.
+        Returns: {"yaw": float, "pitch": float, "roll": float, "alert": str|None}
         """
-        # PLACEHOLDER — will return {yaw, pitch, roll, alert} when implemented
-        return None
+        if self.face_landmarker is None:
+            return None
+
+        from backend.config import HEAD_YAW_THRESHOLD, HEAD_PITCH_THRESHOLD
+
+        yaw_t = yaw_threshold if yaw_threshold is not None else HEAD_YAW_THRESHOLD
+        pitch_t = pitch_threshold if pitch_threshold is not None else HEAD_PITCH_THRESHOLD
+
+        h, w = frame.shape[:2]
+
+        # Convert BGR → RGB for MediaPipe
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        results = self.face_landmarker.process(rgb_frame)
+
+        if not results.multi_face_landmarks:
+            return None
+
+        face_landmarks = results.multi_face_landmarks[0]
+
+        # Extract 2D image points from the 6 key landmarks
+        image_points = np.array([
+            [face_landmarks.landmark[idx].x * w, face_landmarks.landmark[idx].y * h]
+            for idx in self._LANDMARK_INDICES
+        ], dtype=np.float64)
+
+        # Synthetic camera intrinsic matrix (assume no lens distortion)
+        focal_length = w
+        center = (w / 2.0, h / 2.0)
+        camera_matrix = np.array([
+            [focal_length, 0, center[0]],
+            [0, focal_length, center[1]],
+            [0, 0, 1],
+        ], dtype=np.float64)
+        dist_coeffs = np.zeros((4, 1), dtype=np.float64)
+
+        # Solve PnP → rotation vector
+        success, rotation_vector, _ = cv2.solvePnP(
+            self._FACE_3D_MODEL,
+            image_points,
+            camera_matrix,
+            dist_coeffs,
+            flags=cv2.SOLVEPNP_ITERATIVE,
+        )
+
+        if not success:
+            return None
+
+        # Convert rotation vector → rotation matrix → Euler angles
+        rotation_matrix, _ = cv2.Rodrigues(rotation_vector)
+        # Decompose rotation matrix into projection matrices to extract angles
+        proj_matrix = np.hstack((rotation_matrix, np.zeros((3, 1))))
+        _, _, _, _, _, _, euler_angles = cv2.decomposeProjectionMatrix(proj_matrix)
+
+        pitch = float(euler_angles[0][0])  # Cúi/ngẩng (up/down)
+        yaw = float(euler_angles[1][0])    # Liếc ngang (left/right)
+        roll = float(euler_angles[2][0])   # Nghiêng vai (tilt)
+
+        # Build alert message if thresholds exceeded
+        alert = None
+        alerts_parts = []
+
+        if abs(yaw) > yaw_t:
+            direction = "trái" if yaw < 0 else "phải"
+            alerts_parts.append(f"Liếc {direction} ({abs(yaw):.1f}°)")
+
+        if abs(pitch) > pitch_t:
+            direction = "cúi xuống" if pitch > 0 else "ngẩng lên"
+            alerts_parts.append(f"{direction.capitalize()} ({abs(pitch):.1f}°)")
+
+        if alerts_parts:
+            alert = "Quay đầu: " + ", ".join(alerts_parts)
+
+        return {
+            "yaw": round(yaw, 2),
+            "pitch": round(pitch, 2),
+            "roll": round(roll, 2),
+            "alert": alert,
+        }
 
     # ------------------------------------------------------------------
     # Phase 3: YOLOv8 Object Detection (PLACEHOLDER)
@@ -308,7 +430,7 @@ class AIEngine:
             
         return intersection_area / float(min_area)
 
-    def detect_objects(self, frame: np.ndarray) -> dict | None:
+    def detect_objects(self, frame: np.ndarray, confidence_threshold: float = None) -> dict | None:
         """
         Detect objects using dual YOLO models:
         - COCO model: phone, book, person, etc.
@@ -330,7 +452,8 @@ class AIEngine:
             for result in results:
                 for box in result.boxes:
                     conf = float(box.conf[0])
-                    if conf < YOLO_CONFIDENCE_THRESHOLD:
+                    conf_t = confidence_threshold if confidence_threshold is not None else YOLO_CONFIDENCE_THRESHOLD
+                    if conf < conf_t:
                         continue
                     cls_id = int(box.cls[0])
                     class_name = self.object_detector.names[cls_id]
@@ -354,7 +477,8 @@ class AIEngine:
             for result in custom_results:
                 for box in result.boxes:
                     conf = float(box.conf[0])
-                    if conf < YOLO_CONFIDENCE_THRESHOLD:
+                    conf_t = confidence_threshold if confidence_threshold is not None else YOLO_CONFIDENCE_THRESHOLD
+                    if conf < conf_t:
                         continue
                     cls_id = int(box.cls[0])
                     raw_class_name = self.custom_detector.names[cls_id]

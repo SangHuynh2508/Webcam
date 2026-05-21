@@ -1,6 +1,7 @@
 """
 schemas.py — Pydantic models for request/response validation.
 """
+from typing import Optional, Any
 from pydantic import BaseModel
 
 
@@ -28,7 +29,6 @@ class FrameResponse(BaseModel):
 
 
 # --- User & Room Authentication / Authorization Schemas ---
-from typing import Optional, List
 
 class UserRegister(BaseModel):
     username: str
@@ -44,7 +44,7 @@ class UserLogin(BaseModel):
 
 
 class UserResponse(BaseModel):
-    id: int
+    id: str
     username: str
     full_name: str
     role: str
@@ -66,13 +66,18 @@ class RoomCreate(BaseModel):
     description: Optional[str] = None
 
 
+class RoomUpdate(BaseModel):
+    title: str
+    description: Optional[str] = None
+
+
 class RoomResponse(BaseModel):
-    id: int
+    id: str
     room_code: str
     title: str
     description: Optional[str] = None
-    teacher_id: int
-    created_at: str
+    teacher_id: str
+    created_at: Any
 
     class Config:
         from_attributes = True
@@ -85,4 +90,23 @@ class RoomStudentEnroll(BaseModel):
 
 class ExamSessionStart(BaseModel):
     room_code: str
+
+
+# --- AI Configuration Schemas ---
+class AIConfigUpdate(BaseModel):
+    face_similarity_threshold: Optional[float] = None
+    head_yaw_threshold: Optional[float] = None
+    head_pitch_threshold: Optional[float] = None
+    yolo_confidence_threshold: Optional[float] = None
+    max_violations_suspicious: Optional[int] = None
+    max_violations_flagged: Optional[int] = None
+
+
+class AIConfigResponse(BaseModel):
+    face_similarity_threshold: float
+    head_yaw_threshold: float
+    head_pitch_threshold: float
+    yolo_confidence_threshold: float
+    max_violations_suspicious: int
+    max_violations_flagged: int
 
