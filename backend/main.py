@@ -491,6 +491,9 @@ async def process_frame(request: FrameRequest, db = Depends(get_db)):
     # 5. Compile Human-Readable Alerts
     alerts = _build_alerts(identity_result, head_pose_result, objects_result)
 
+    # Track vi phạm tích lũy để trả về frontend
+    session_violation_count = 0
+
     # 6. Database Logging & Warnings Escalation (If student has an active session)
     if active_session and student:
         violations_to_log = []
@@ -573,8 +576,12 @@ async def process_frame(request: FrameRequest, db = Depends(get_db)):
             updated_session = await db.sessions.find_one({"_id": active_session["_id"]})
             if updated_session:
                 violation_count = updated_session.get("violation_count", 0)
+                session_violation_count = violation_count
                 status_str = updated_session.get("status", "NORMAL")
                 alerts.append(f"HỆ THỐNG: Cảnh báo vi phạm tích lũy! Lần: {violation_count} (Trạng thái: {status_str})")
+        else:
+            # Lấy violation_count hiện tại dù không có vi phạm mới
+            session_violation_count = active_session.get("violation_count", 0)
 
     # 7. Legacy CSV Logger fallback
     csv_data = {
@@ -593,6 +600,7 @@ async def process_frame(request: FrameRequest, db = Depends(get_db)):
         objects=objects_result,
         alerts=alerts,
         timestamp=timestamp_str,
+        violation_count=session_violation_count,
     )
 
 

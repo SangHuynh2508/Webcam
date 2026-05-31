@@ -716,6 +716,9 @@ async function captureAndSend(mssv) {
         lastServerIdentity = data.identity;
         lastServerHeadPose = data.head_pose || null;
 
+        // Tổng số vi phạm tích lũy trong phiên hiện tại
+        const totalViolations = data.violation_count || 0;
+
         // NẾU NGƯỜI DÙNG ĐÃ ẤN STOP TRONG LÚC ĐANG CHỜ API TRẢ VỀ, BỎ QUA KẾT QUẢ NÀY
         if (!isMonitoring) return;
 
@@ -727,11 +730,18 @@ async function captureAndSend(mssv) {
         // Hiển thị log
         if (data.alerts && data.alerts.length > 0) {
             data.alerts.forEach(alertText => {
+                // Phân loại màu theo nội dung alert
                 let type = 'ok';
                 if (alertText.includes('🚨')) type = 'danger';
                 if (alertText.includes('⚠️')) type = 'warning';
                 if (alertText.includes('❌')) type = 'danger';
                 if (alertText.includes('✅')) type = 'ok';
+
+                // Thông báo vi phạm tích lũy → dùng màu theo cấp độ
+                if (alertText.startsWith('HỆ THỐNG:') && alertText.includes('vi phạm')) {
+                    type = getViolationColorType(totalViolations);
+                }
+
                 logConsole(alertText, type);
             });
         } else {
@@ -854,7 +864,23 @@ function drawFaceBboxFallback(identity) {
 // ==========================================
 // F. CONSOLE LOG RENDERING
 // ==========================================
+
+/**
+ * Map số vi phạm tích lũy → CSS class màu cấp độ.
+ *   1-3  → violation-low    (trắng mặc định)
+ *   4-6  → violation-medium (vàng cảnh báo)
+ *   7-9  → violation-high   (cam đậm)
+ *   10+  → violation-critical (đỏ + pulse)
+ */
+function getViolationColorType(count) {
+    if (count >= 10) return 'violation-critical';
+    if (count >= 7)  return 'violation-high';
+    if (count >= 4)  return 'violation-medium';
+    return 'violation-low';
+}
+
 function logConsole(message, type = 'ok') {
+
     const timeStr = new Date().toLocaleTimeString('vi-VN');
 
     const div = document.createElement('div');
@@ -930,3 +956,8 @@ async function checkPersistedSession() {
 
 // Run persisted session check on startup
 checkPersistedSession();
+
+// Gắn nút "Làm mới danh sách" vi phạm cho giảng viên (thay vì onclick inline không hoạt động với ES module)
+document.getElementById('btn-refresh-violations')?.addEventListener('click', () => {
+    refreshViolations();
+});

@@ -26,6 +26,7 @@ class FrameResponse(BaseModel):
     objects: dict | None = None     # Placeholder for YOLOv8
     alerts: list[str]
     timestamp: str
+    violation_count: int = 0        # Tong so vi pham tich luy trong phien hien tai
 
 
 # --- User & Room Authentication / Authorization Schemas ---

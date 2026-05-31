@@ -330,8 +330,8 @@ input::placeholder {
 .console-box {
     height: 420px;
     overflow-y: auto;
-    background: #f8fafc;
-    color: var(--text-main);
+    background: #0a0a0a !important;
+    color: #e2e8f0 !important;
     font-family: 'JetBrains Mono', 'Courier New', monospace;
     font-size: 0.85rem;
     line-height: 1.6;
@@ -345,27 +345,27 @@ input::placeholder {
 }
 
 .console-box::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: #1a1a1a;
 }
 
 .console-box::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: #3f3f3f;
     border-radius: 4px;
 }
 
 .console-box::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #555555;
 }
 
 .log-entry {
     margin-bottom: 0.6rem;
-    border-left: 2px solid #e2e8f0;
+    border-left: 2px solid #2a2a2a;
     padding-left: 10px;
     word-break: break-word;
 }
 
 .log-time {
-    color: var(--text-muted);
+    color: #6b7280;
     margin-right: 4px;
 }
 
@@ -375,7 +375,7 @@ input::placeholder {
 }
 
 .log-warning {
-    color: #d97706;  /* Vàng đậm dễ nhìn trên nền sáng */
+    color: #fbbf24;  /* Vàng sáng, dễ nhìn trên nền đen */
     font-weight: 500;
 }
 
@@ -383,6 +383,35 @@ input::placeholder {
     color: var(--danger-color);
     font-weight: 700;
 }
+
+/* === Màu cấp độ vi phạm tích lũy === */
+.log-violation-low {
+    /* 1-3 vi phạm: màu trắng mặc định */
+    color: #e2e8f0;
+    font-weight: 500;
+}
+
+.log-violation-medium {
+    /* 4-6 vi phạm: vàng cảnh báo */
+    color: #fbbf24;
+    font-weight: 600;
+    text-shadow: 0 0 8px rgba(251, 191, 36, 0.25);
+}
+
+.log-violation-high {
+    /* 7-9 vi phạm: cam đồ */
+    color: #f97316;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(249, 115, 22, 0.3);
+}
+
+.log-violation-critical {
+    /* 10+ vi phạm: đỏ nguy hiểm */
+    color: #ef4444;
+    font-weight: 700;
+    text-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
+}
+
 
 /* Monitor Header */
 .monitor-header {
