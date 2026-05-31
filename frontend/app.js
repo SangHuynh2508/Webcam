@@ -575,38 +575,87 @@ function startClientTracking() {
                 const h = bb.height * scale;
 
                 // Chọn màu dựa theo kết quả server gần nhất
-                let color = '#facc15'; // Vàng mặc định (chưa có kết quả)
+                let primaryColor = '#facc15';
+                let borderColor = 'rgba(250, 204, 21, 0.4)';
+                let fillBgColor = 'rgba(250, 204, 21, 0.08)';
                 let label = 'Đang xác minh...';
 
                 if (lastServerIdentity) {
                     if (lastServerIdentity.status === 'Match') {
-                        color = '#22c55e'; // Xanh lá
+                        primaryColor = '#22c55e';
+                        borderColor = 'rgba(34, 197, 94, 0.4)';
+                        fillBgColor = 'rgba(34, 197, 94, 0.12)';
                         label = `${lastServerIdentity.name} (${(lastServerIdentity.similarity * 100).toFixed(1)}%)`;
                     } else if (lastServerIdentity.status === 'Unknown') {
-                        color = '#ef4444'; // Đỏ
+                        primaryColor = '#ef4444';
+                        borderColor = 'rgba(239, 68, 68, 0.4)';
+                        fillBgColor = 'rgba(239, 68, 68, 0.12)';
                         label = `Sai người (${(lastServerIdentity.similarity * 100).toFixed(1)}%)`;
                     } else if (lastServerIdentity.status === 'Error') {
-                        color = '#ef4444';
+                        primaryColor = '#ef4444';
+                        borderColor = 'rgba(239, 68, 68, 0.4)';
+                        fillBgColor = 'rgba(239, 68, 68, 0.12)';
                         label = 'Chưa đăng ký';
                     } else if (lastServerIdentity.status === 'No Face') {
-                        color = '#facc15';
+                        primaryColor = '#facc15';
+                        borderColor = 'rgba(250, 204, 21, 0.4)';
+                        fillBgColor = 'rgba(250, 204, 21, 0.08)';
                         label = 'Không thấy mặt (server)';
                     }
                 }
 
-                // Vẽ bbox
-                overlayCtx.strokeStyle = color;
-                overlayCtx.lineWidth = 3;
+                // 1. Vẽ nền trong suốt
+                overlayCtx.fillStyle = fillBgColor;
+                overlayCtx.fillRect(x, y, w, h);
+
+                // 2. Vẽ viền mỏng
+                overlayCtx.strokeStyle = borderColor;
+                overlayCtx.lineWidth = 1.5;
                 overlayCtx.strokeRect(x, y, w, h);
+
+                // 3. Vẽ 4 góc màu đậm hơn
+                const cornerLen = Math.min(20, w * 0.2, h * 0.2);
+                overlayCtx.strokeStyle = primaryColor;
+                overlayCtx.lineWidth = 4;
+                overlayCtx.lineCap = 'round';
+                overlayCtx.lineJoin = 'round';
+
+                // Top-Left
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(x + cornerLen, y);
+                overlayCtx.lineTo(x, y);
+                overlayCtx.lineTo(x, y + cornerLen);
+                overlayCtx.stroke();
+
+                // Top-Right
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(x + w - cornerLen, y);
+                overlayCtx.lineTo(x + w, y);
+                overlayCtx.lineTo(x + w, y + cornerLen);
+                overlayCtx.stroke();
+
+                // Bottom-Left
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(x, y + h - cornerLen);
+                overlayCtx.lineTo(x, y + h);
+                overlayCtx.lineTo(x + cornerLen, y + h);
+                overlayCtx.stroke();
+
+                // Bottom-Right
+                overlayCtx.beginPath();
+                overlayCtx.moveTo(x + w - cornerLen, y + h);
+                overlayCtx.lineTo(x + w, y + h);
+                overlayCtx.lineTo(x + w, y + h - cornerLen);
+                overlayCtx.stroke();
 
                 // Vẽ label nền
                 overlayCtx.font = 'bold 14px Inter, sans-serif';
                 const textW = overlayCtx.measureText(label).width;
-                overlayCtx.fillStyle = color;
+                overlayCtx.fillStyle = primaryColor;
                 overlayCtx.fillRect(x, y - 22, textW + 12, 22);
 
                 // Vẽ text
-                overlayCtx.fillStyle = '#000';
+                overlayCtx.fillStyle = '#ffffff';
                 overlayCtx.fillText(label, x + 6, y - 6);
 
                 // Vẽ Head Pose info (Yaw/Pitch/Roll) bên dưới bbox
@@ -725,22 +774,80 @@ function drawFaceBboxFallback(identity) {
     const w = (bbox.x2 - bbox.x1) * scaledW;
     const h = (bbox.y2 - bbox.y1) * scaledH;
 
-    let color = '#facc15';
-    if (identity.status === 'Match') color = '#22c55e';
-    if (identity.status === 'Unknown') color = '#ef4444';
-    if (identity.status === 'Error') color = '#ef4444';
+    let primaryColor = '#facc15';
+    let borderColor = 'rgba(250, 204, 21, 0.4)';
+    let fillBgColor = 'rgba(250, 204, 21, 0.08)';
+    let label = 'Đang xác minh...';
 
-    overlayCtx.strokeStyle = color;
-    overlayCtx.lineWidth = 3;
+    if (identity) {
+        if (identity.status === 'Match') {
+            primaryColor = '#22c55e';
+            borderColor = 'rgba(34, 197, 94, 0.4)';
+            fillBgColor = 'rgba(34, 197, 94, 0.12)';
+            label = `${identity.name} (${(identity.similarity * 100).toFixed(1)}%)`;
+        } else if (identity.status === 'Unknown') {
+            primaryColor = '#ef4444';
+            borderColor = 'rgba(239, 68, 68, 0.4)';
+            fillBgColor = 'rgba(239, 68, 68, 0.12)';
+            label = `Sai người (${(identity.similarity * 100).toFixed(1)}%)`;
+        } else if (identity.status === 'Error') {
+            primaryColor = '#ef4444';
+            borderColor = 'rgba(239, 68, 68, 0.4)';
+            fillBgColor = 'rgba(239, 68, 68, 0.12)';
+            label = 'Chưa đăng ký';
+        }
+    }
+
+    // 1. Vẽ nền trong suốt
+    overlayCtx.fillStyle = fillBgColor;
+    overlayCtx.fillRect(x, y, w, h);
+
+    // 2. Vẽ viền mỏng
+    overlayCtx.strokeStyle = borderColor;
+    overlayCtx.lineWidth = 1.5;
     overlayCtx.strokeRect(x, y, w, h);
 
-    const label = `${identity.name} (${(identity.similarity * 100).toFixed(1)}%)`;
+    // 3. Vẽ 4 góc màu đậm hơn
+    const cornerLen = Math.min(20, w * 0.2, h * 0.2);
+    overlayCtx.strokeStyle = primaryColor;
+    overlayCtx.lineWidth = 4;
+    overlayCtx.lineCap = 'round';
+    overlayCtx.lineJoin = 'round';
+
+    // Top-Left
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x + cornerLen, y);
+    overlayCtx.lineTo(x, y);
+    overlayCtx.lineTo(x, y + cornerLen);
+    overlayCtx.stroke();
+
+    // Top-Right
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x + w - cornerLen, y);
+    overlayCtx.lineTo(x + w, y);
+    overlayCtx.lineTo(x + w, y + cornerLen);
+    overlayCtx.stroke();
+
+    // Bottom-Left
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x, y + h - cornerLen);
+    overlayCtx.lineTo(x, y + h);
+    overlayCtx.lineTo(x + cornerLen, y + h);
+    overlayCtx.stroke();
+
+    // Bottom-Right
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(x + w - cornerLen, y + h);
+    overlayCtx.lineTo(x + w, y + h);
+    overlayCtx.lineTo(x + w, y + h - cornerLen);
+    overlayCtx.stroke();
+
     overlayCtx.font = 'bold 14px Inter, sans-serif';
     const textW = overlayCtx.measureText(label).width;
-    overlayCtx.fillStyle = color;
+    overlayCtx.fillStyle = primaryColor;
     overlayCtx.fillRect(x, y - 22, textW + 12, 22);
 
-    overlayCtx.fillStyle = '#000';
+    overlayCtx.fillStyle = '#ffffff';
     overlayCtx.fillText(label, x + 6, y - 6);
 }
 
@@ -767,7 +874,7 @@ async function checkPersistedSession() {
 
     const viewAuth = document.getElementById('view-auth');
     const authCard = document.querySelector('.auth-card');
-    
+
     // Create and append loading indicator
     const loadingDiv = document.createElement('div');
     loadingDiv.id = 'auth-loading';
@@ -776,7 +883,7 @@ async function checkPersistedSession() {
         <div class="spinner" style="width: 40px; height: 40px; border: 4px solid var(--border-color); border-top-color: var(--primary-color); border-radius: 50%; animation: spin 1s linear infinite;"></div>
         <p style="font-weight: 600; color: var(--text-muted); margin: 0;">Đang xác thực phiên đăng nhập...</p>
     `;
-    
+
     if (authCard) authCard.style.display = 'none';
     if (viewAuth) viewAuth.appendChild(loadingDiv);
 

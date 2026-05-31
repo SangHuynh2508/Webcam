@@ -16,6 +16,7 @@ from backend.config import (
     FACE_SIMILARITY_THRESHOLD,
     YOLO_MODEL_PATH,
     CUSTOM_YOLO_MODEL_PATH,
+    FACE_LANDMARKER_MODEL_PATH,
 )
 
 logger = logging.getLogger("anti_cheat.ai_engine")
@@ -57,16 +58,27 @@ class AIEngine:
             raise
 
     def _load_mediapipe(self):
-        """Load MediaPipe Face Landmarker for head pose estimation."""
+        """Load MediaPipe FaceLandmarker (Tasks API) for head pose estimation."""
         try:
-            import mediapipe as mp
-            self.face_landmarker = mp.solutions.face_mesh.FaceMesh(
-                static_image_mode=True,
-                max_num_faces=1,
-                refine_landmarks=True,
-                min_detection_confidence=0.5,
+            if not os.path.exists(FACE_LANDMARKER_MODEL_PATH):
+                logger.warning(f"[MediaPipe] Model not found: {FACE_LANDMARKER_MODEL_PATH}")
+                return
+
+            from mediapipe.tasks.python import BaseOptions
+            from mediapipe.tasks.python.vision import (
+                FaceLandmarker,
+                FaceLandmarkerOptions,
             )
-            logger.info("[MediaPipe] FaceMesh loaded successfully.")
+
+            options = FaceLandmarkerOptions(
+                base_options=BaseOptions(model_asset_path=FACE_LANDMARKER_MODEL_PATH),
+                num_faces=1,
+                min_face_detection_confidence=0.5,
+                min_face_presence_confidence=0.5,
+                output_facial_transformation_matrixes=True,
+            )
+            self.face_landmarker = FaceLandmarker.create_from_options(options)
+            logger.info("[MediaPipe] FaceLandmarker (Tasks API) loaded successfully.")
         except Exception as e:
             logger.warning(f"[MediaPipe] Failed to load (non-blocking): {e}")
 
@@ -323,7 +335,7 @@ class AIEngine:
         pitch_threshold: float = None,
     ) -> dict | None:
         """
-        Analyze head orientation (Yaw, Pitch, Roll) using MediaPipe FaceMesh + cv2.solvePnP.
+        Analyze head orientation (Yaw, Pitch, Roll) using MediaPipe FaceLandmarker (Tasks API) + cv2.solvePnP.
         Returns: {"yaw": float, "pitch": float, "roll": float, "alert": str|None}
         """
         if self.face_landmarker is None:
@@ -336,18 +348,22 @@ class AIEngine:
 
         h, w = frame.shape[:2]
 
-        # Convert BGR → RGB for MediaPipe
+        # Convert BGR → RGB and wrap in MediaPipe Image
+        import mediapipe as mp
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = self.face_landmarker.process(rgb_frame)
+        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
 
-        if not results.multi_face_landmarks:
+        # Detect face landmarks using Tasks API
+        results = self.face_landmarker.detect(mp_image)
+
+        if not results.face_landmarks:
             return None
 
-        face_landmarks = results.multi_face_landmarks[0]
+        face_landmarks = results.face_landmarks[0]
 
         # Extract 2D image points from the 6 key landmarks
         image_points = np.array([
-            [face_landmarks.landmark[idx].x * w, face_landmarks.landmark[idx].y * h]
+            [face_landmarks[idx].x * w, face_landmarks[idx].y * h]
             for idx in self._LANDMARK_INDICES
         ], dtype=np.float64)
 
@@ -382,6 +398,19 @@ class AIEngine:
         pitch = float(euler_angles[0][0])  # Cúi/ngẩng (up/down)
         yaw = float(euler_angles[1][0])    # Liếc ngang (left/right)
         roll = float(euler_angles[2][0])   # Nghiêng vai (tilt)
+
+        # Chuẩn hóa góc Euler về khoảng [-90, 90] để tránh hiện tượng Gimbal Lock
+        # (cv2.decomposeProjectionMatrix có thể trả về góc ~180° khi thực tế chỉ nghiêng nhẹ)
+        def normalize_angle(angle):
+            if angle > 90:
+                return angle - 180
+            elif angle < -90:
+                return angle + 180
+            return angle
+
+        pitch = normalize_angle(pitch)
+        yaw = normalize_angle(yaw)
+        roll = normalize_angle(roll)
 
         # Build alert message if thresholds exceeded
         alert = None

@@ -336,14 +336,45 @@ def seed_database(db):
     student_id = db["users"].insert_one(student_doc).inserted_id
     print(f"  ➕ Đã thêm tài khoản Sinh viên (sv_sang/student123, MSSV: 2380601889) -> ID: {student_id}")
 
-    # 2. Seeds Rooms (Removed mock rooms per user request)
-    
+    # 2. Seeds Exam Rooms
+    rooms = [
+        {
+            "room_code": "KTLT2024A",
+            "title": "Ky thuat lap trinh - Ca 1",
+            "description": "Phong thi cuoi ky mon Ky thuat lap trinh (Python), buoi sang.",
+            "teacher_id": teacher_id,
+            "students": [
+                {"student_id": student_id, "face_embedding": None, "face_image_path": None, "enrolled_at": datetime.utcnow()}
+            ],
+            "created_at": datetime.utcnow(),
+        },
+        {
+            "room_code": "CSDL2024B",
+            "title": "Co so du lieu - Ca 2",
+            "description": "Phong thi giua ky mon Co so du lieu (SQL/NoSQL), buoi chieu.",
+            "teacher_id": teacher_id,
+            "students": [],
+            "created_at": datetime.utcnow(),
+        },
+        {
+            "room_code": "MMNM2024C",
+            "title": "Mang may tinh - Thi thu",
+            "description": "Phong thi thu mon Mang may tinh va Truyen thong du lieu.",
+            "teacher_id": teacher_id,
+            "students": [],
+            "created_at": datetime.utcnow(),
+        },
+    ]
+    for room in rooms:
+        db["exam_rooms"].insert_one(room)
+    print(f"  ➕ Da them 3 phong thi mau (KTLT2024A, CSDL2024B, MMNM2024C)")
+
     # 3. Seed Global system thresholds settings
     settings_doc = {
         "_id": "global_ai_config",
         "face_similarity_threshold": 0.55,
         "head_yaw_threshold": 30.0,
-        "head_pitch_threshold": 25.0,
+        "head_pitch_threshold": 15.0,  # Giảm từ 25 → 15 để nhạy hơn khi cúi
         "yolo_confidence_threshold": 0.65,
         "max_violations_suspicious": 3,
         "max_violations_flagged": 5,

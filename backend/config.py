@@ -12,9 +12,10 @@ LOG_DIR = os.path.join(BASE_DIR, "logs")
 FACE_DETECTION_MODEL = "buffalo_l"  # ArcFace ResNet100 bundle
 FACE_SIMILARITY_THRESHOLD = 0.55   # Cosine similarity >= this → Match
 
-# --- MediaPipe Head Pose (Placeholder thresholds) ---
+# --- MediaPipe Head Pose ---
 HEAD_YAW_THRESHOLD = 30.0    # degrees — liếc trái/phải
-HEAD_PITCH_THRESHOLD = 25.0  # degrees — cúi/ngẩng
+HEAD_PITCH_THRESHOLD = 15.0  # degrees — cúi/ngẩng (giảm từ 25 → 15 để nhạy hơn với cúi xuống)
+FACE_LANDMARKER_MODEL_PATH = os.path.join(BASE_DIR, "face_landmarker.task")
 
 # --- YOLOv8 Object Detection ---
 YOLO_MODEL_PATH = "yolov8n.pt"

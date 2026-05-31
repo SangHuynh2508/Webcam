@@ -1,13 +1,15 @@
 """
 auth.py — Authentication and Authorization utilities including password hashing,
 JWT token creation, and FastAPI dependency checks for role-based access control (RBAC).
+
+Note: Uses bcrypt directly instead of passlib to ensure compatibility with bcrypt >= 4.x
+(passlib 1.7.4 is abandoned and incompatible with modern bcrypt versions).
 """
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import Depends, HTTPException, status, Header
-# Use standard pyjwt since we explicitly added pyjwt>=2.8.0.
 import jwt
-from passlib.context import CryptContext
+import bcrypt
 from backend.database import get_db
 
 # Configuration
@@ -15,21 +17,21 @@ SECRET_KEY = "SECRET_KEY_FOR_WEB_ANTI_CHEAT_WEBCAM_DETECTION_SYSTEM"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 360  # 6 hours
 
-# Cryptography context
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verifies a plain password against its bcrypt hash."""
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        plain_bytes = plain_password.encode("utf-8")
+        hashed_bytes = hashed_password.encode("utf-8") if isinstance(hashed_password, str) else hashed_password
+        return bcrypt.checkpw(plain_bytes, hashed_bytes)
     except Exception:
         return False
 
 
 def get_password_hash(password: str) -> str:
     """Generates a bcrypt hash of a plain password."""
-    return pwd_context.hash(password)
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
