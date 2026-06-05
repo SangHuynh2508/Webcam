@@ -102,7 +102,7 @@ loginForm.addEventListener('submit', async (e) => {
         const token = data.access_token;
         const user = data.user;
 
-        localStorage.setItem('token', token);
+        sessionStorage.setItem('token', token);
 
         currentUser = {
             username: user.username,
@@ -179,12 +179,12 @@ registerForm.addEventListener('submit', async (e) => {
 });
 
 window.logout = () => {
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('token');
     location.reload();
 };
 
 async function loadTeacherRooms() {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return;
     try {
         const response = await fetch('/api/rooms/teacher-rooms', {
@@ -209,7 +209,7 @@ async function loadTeacherRooms() {
 }
 
 async function loadStudentRooms() {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return;
     try {
         const response = await fetch('/api/rooms/student-rooms', {
@@ -235,7 +235,7 @@ async function loadStudentRooms() {
 
 window.joinRoom = async (roomCode, roomTitle) => {
     if (!currentUser) return;
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
         alert("Vui lòng đăng nhập lại!");
         return;
@@ -275,7 +275,7 @@ document.getElementById('createRoomForm')?.addEventListener('submit', async (e) 
     const name = nameInput.value.trim();
     if (!name) return;
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) {
         alert("Vui lòng đăng nhập lại!");
         return;
@@ -344,15 +344,30 @@ function startViolationPolling() {
 }
 
 window.refreshViolations = async () => {
-    try {
-        const response = await fetch('/api/logs?limit=20');
-        const result = await response.json();
+    const token = sessionStorage.getItem('token');
+    if (!token) return;
 
-        if (result.status === 'ok') {
-            renderViolationLogs(result.data);
+    const container = document.getElementById('teacher-violation-log');
+    if (container) {
+        container.innerHTML = '<div class="log-entry"><span class="log-warning">Đang tải dữ liệu...</span></div>';
+    }
+
+    try {
+        const response = await fetch('/api/logs/violations?limit=50', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
         }
+
+        const logs = await response.json();
+        renderViolationLogs(logs);
     } catch (err) {
         console.error("Không thể tải log vi phạm:", err);
+        if (container) {
+            container.innerHTML = '<div class="log-entry"><span class="log-danger">Lỗi tải dữ liệu. Kiểm tra kết nối.</span></div>';
+        }
     }
 };
 
@@ -361,23 +376,50 @@ function renderViolationLogs(logs) {
     if (!container) return;
 
     if (!logs || logs.length === 0) {
-        container.innerHTML = '<div class="log-entry">Chưa có dữ liệu giám sát nào.</div>';
+        container.innerHTML = '<div class="log-entry">Chưa có vi phạm nào được ghi nhận.</div>';
         return;
     }
 
     container.innerHTML = logs.map(log => {
-        const hasAlert = log.alerts && log.alerts.length > 0;
-        const isCritical = log.alerts.includes('🚨') || log.alerts.includes('Unknown');
-        const rowClass = isCritical ? 'log-danger' : (hasAlert ? 'log-warning' : 'log-ok');
+        const severity = log.severity || 'WARNING';
+        const isCritical = severity === 'CRITICAL';
+        const rowClass = isCritical ? 'log-danger' : 'log-warning';
+
+        // Format timestamp
+        let timeDisplay = log.timestamp || log.created_at || '';
+        if (timeDisplay && timeDisplay.includes('T')) {
+            // ISO format: 2026-06-04T12:39:08
+            const d = new Date(timeDisplay);
+            timeDisplay = d.toLocaleTimeString('vi-VN');
+        } else if (timeDisplay && timeDisplay.includes(' ')) {
+            timeDisplay = timeDisplay.split(' ')[1];
+        }
+
+        const mssv = log.mssv || log.student_mssv || 'N/A';
+        const studentName = log.student_name ? ` - ${log.student_name}` : '';
+        const roomName = log.room_title ? ` [${log.room_title}]` : '';
+        const typeMap = {
+            'unknown_identity': 'Sai người',
+            'no_face': 'Không có mặt',
+            'head_pose_violation': 'Quay đầu',
+            'multiple_persons': 'Nhiều người',
+        };
+        const typeLabel = typeMap[log.violation_type] || log.violation_type || 'Vi phạm';
+        const details = log.details || '';
+        const badge = isCritical ? '🚨' : '⚠️';
 
         return `
             <div class="log-entry">
-                <span class="log-time">[${log.timestamp.split(' ')[1]}]</span>
-                <strong>MSSV: ${log.mssv}</strong> - 
-                <span class="${rowClass}">${log.alerts || 'Bình thường'}</span>
+                <span class="log-time">[${timeDisplay}]</span>
+                ${badge} <strong>MSSV: ${mssv}${studentName}</strong>${roomName}
+                — <span class="${rowClass}">${typeLabel}</span>
+                ${details ? `<br><span style="margin-left:1.5rem;font-size:0.8em;opacity:0.75">${details}</span>` : ''}
             </div>
         `;
     }).join('');
+
+    // Auto-scroll to bottom
+    container.scrollTop = container.scrollHeight;
 }
 
 // ==========================================
@@ -500,7 +542,7 @@ btnStop.addEventListener('click', async () => {
         video.srcObject = null;
     }
 
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (token) {
         try {
             await fetch('/api/exam/submit', {
@@ -895,7 +937,7 @@ function logConsole(message, type = 'ok') {
 // G. PERSISTED SESSION CHECK (ON STARTUP)
 // ==========================================
 async function checkPersistedSession() {
-    const token = localStorage.getItem('token');
+    const token = sessionStorage.getItem('token');
     if (!token) return;
 
     const viewAuth = document.getElementById('view-auth');
@@ -948,7 +990,7 @@ async function checkPersistedSession() {
         }
     } catch (err) {
         console.warn("Session validation failed:", err);
-        localStorage.removeItem('token');
+        sessionStorage.removeItem('token');
         if (loadingDiv) loadingDiv.remove();
         if (authCard) authCard.style.display = '';
     }
@@ -957,7 +999,15 @@ async function checkPersistedSession() {
 // Run persisted session check on startup
 checkPersistedSession();
 
-// Gắn nút "Làm mới danh sách" vi phạm cho giảng viên (thay vì onclick inline không hoạt động với ES module)
+// Gắn nút "Làm mới danh sách" vi phạm cho giảng viên
 document.getElementById('btn-refresh-violations')?.addEventListener('click', () => {
     refreshViolations();
+});
+
+// Gắn nút "Xóa log" — chỉ clear UI, không xóa DB
+document.getElementById('btn-clear-violations')?.addEventListener('click', () => {
+    const container = document.getElementById('teacher-violation-log');
+    if (container) {
+        container.innerHTML = '<div class="log-entry">Đã xóa hiển thị log. Dữ liệu trong DB vẫn được lưu.</div>';
+    }
 });

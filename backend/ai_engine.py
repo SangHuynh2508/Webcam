@@ -416,11 +416,15 @@ class AIEngine:
         alert = None
         alerts_parts = []
 
-        if abs(yaw) > yaw_t:
-            direction = "trái" if yaw < 0 else "phải"
+        # Gimbal Lock Guard: khi pitch gần ±90°, yaw không đáng tin cậy → bỏ qua yaw
+        pitch_near_gimbal = abs(pitch) > 60
+
+        if abs(yaw) > yaw_t and not pitch_near_gimbal:
+            direction = "trái" if yaw > 0 else "phải"
             alerts_parts.append(f"Liếc {direction} ({abs(yaw):.1f}°)")
 
         if abs(pitch) > pitch_t:
+            # cv2.decomposeProjectionMatrix: pitch âm = ngẩng lên, pitch dương = cúi xuống
             direction = "cúi xuống" if pitch > 0 else "ngẩng lên"
             alerts_parts.append(f"{direction.capitalize()} ({abs(pitch):.1f}°)")
 

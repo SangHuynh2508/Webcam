@@ -10,7 +10,7 @@
     <meta property="og:description" content="Hệ thống Giám sát thi chống gian lận trực tuyến thông qua Webcam.">
     <meta property="og:type" content="website">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=2.0.4">
+    <link rel="stylesheet" href="style.css?v=2.0.5">
 </head>
 
 <body>
@@ -122,7 +122,10 @@
                     <div id="teacher-violation-log" class="console-box violation-monitor">
                         <div class="log-entry">Đang chờ dữ liệu giám sát...</div>
                     </div>
-                    <button id="btn-refresh-violations" class="btn btn-sm" style="margin-top: 10px;">Làm mới danh sách</button>
+                    <div style="display:flex;gap:0.5rem;margin-top:10px;">
+                        <button id="btn-refresh-violations" class="btn btn-sm">&#8635; Làm mới</button>
+                        <button id="btn-clear-violations" class="btn btn-sm" style="background:var(--danger-color,#ef4444);color:#fff;">&#10005; Xóa hiển thị</button>
+                    </div>
                 </div>
             </div>
         </section>
@@ -169,7 +172,7 @@
 
     <!-- MediaPipe Vision for client-side real-time face tracking -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs" type="module"></script>
-    <script src="app.js?v=2.0.4" type="module"></script>
+    <script src="app.js?v=2.0.5" type="module"></script>
 </body>
 
 </html>
